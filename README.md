@@ -27,9 +27,28 @@ by integrating support for multiple agents.
 
 # Installation
 
-To install the Minigrid library use `pip install minigrid`.
+To install the Hypergrid for use, run the following:
 
-We support Python 3.7, 3.8, 3.9, 3.10 and 3.11 on Linux and macOS. We will accept PRs related to Windows, but do not officially support it.
+```bash
+pip install git+https://github.com/bhosley/hypergrid.git
+```
+
+For an editable installation, for further development or research, run the following:
+
+```bash
+git clone https://github.com/bhosley/hypergrid.git
+cd hypergrid
+pip install --upgrade pip setuptools wheel # needed for pip < 21.3
+pip install -e .
+```
+
+To install required dependencies for development, run:
+
+```bash
+pip install -e ".[dev]"
+```
+
+This package requires Python 3.9 or later.
 
 # Environments
 
