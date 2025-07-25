@@ -1,5 +1,6 @@
+[![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 [![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit&logoColor=white)](https://pre-commit.com/)
-[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+
 
 <!--
 <p align="center">
@@ -18,7 +19,7 @@ Hypergrid is an extension of the [Farama Foundation's](https://farama.org)
 Hypergrid takes the two dimensions of Minigrid and rewrites the library to
 operate in arbitrary, discrete dimensions.
 The framework, environments, and task derived from Hypergrid are intended
-to maintain Minigrid's compatability with the [Gymnasium](https://github.com/Farama-Foundation/Gymnasium) API standards, while remaining lightweight, fast, and easily customizable.
+to maintain Minigrid's compatibility with the [Gymnasium](https://github.com/Farama-Foundation/Gymnasium) API standards, while remaining lightweight, fast, and easily customizable.
 
 Hypergrid additionally borrows inspiration from [Multigrid](https://github.com/ini/multigrid)
 by integrating support for multiple agents.
@@ -33,7 +34,7 @@ We support Python 3.7, 3.8, 3.9, 3.10 and 3.11 on Linux and macOS. We will accep
 
 <!--
 ## Minigrid
-The list of the environments that were included in the original `Minigrid` library can be found in the [documentation](https://minigrid.farama.org/environments/minigrid/). These environments have in common a triangle-like agent with a discrete action space that has to navigate a 2D map with different obstacles (Walls, Lava, Dynamic obstacles) depending on the environment. The task to be accomplished is described by a `mission` string returned by the observation of the agent. These mission tasks include different goal-oriented and hierarchical missions such as picking up boxes, opening doors with keys or navigating a maze to reach a goal location. Each environment provides one or more configurations registered with Gymansium. Each environment is also programmatically tunable in terms of size/complexity, which is useful for curriculum learning or to fine-tune difficulty.
+The list of the environments that were included in the original `Minigrid` library can be found in the [documentation](https://minigrid.farama.org/environments/minigrid/). These environments have in common a triangle-like agent with a discrete action space that has to navigate a 2D map with different obstacles (Walls, Lava, Dynamic obstacles) depending on the environment. The task to be accomplished is described by a `mission` string returned by the observation of the agent. These mission tasks include different goal-oriented and hierarchical missions such as picking up boxes, opening doors with keys or navigating a maze to reach a goal location. Each environment provides one or more configurations registered with Gymnasium. Each environment is also programmatically tunable in terms of size/complexity, which is useful for curriculum learning or to fine-tune difficulty.
  -->
 
 <!--

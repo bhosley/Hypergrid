@@ -14,14 +14,16 @@ dependencies = [
     "aenum (>=3.1.16,<4.0.0)",
     "numba (>=0.61.2,<0.62.0)",
     "numpy (>=2.2,<2.3)",
-    "black (>=25.1.0,<26.0.0)",
     "pre-commit (>=4.2.0,<5.0.0)"
 ]
 
 [tool.poetry]
 packages = [{include = "hypergrid", from = "."}]
 
-[tool.black]
+[tool.poetry.group.dev.dependencies]
+ruff = "^0.12.5"
+
+[tool.ruff]
 line-length = 80
 
 [build-system]
