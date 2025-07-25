@@ -84,7 +84,7 @@ def test_agent_initialization_and_obs_space(spatial_ndim, view_size):
     # assert (  agent.state.pos == tuple([1] * spatial_ndim)  ).all()
     assert np.all(agent.state.pos == tuple([1] * spatial_ndim))
     assert not agent.state.terminated
-    assert agent.state.carrying == None
+    assert agent.state.carrying is None
     # default orientation mapped to 0 movement
     # assert (  agent.state.orientation == (1,) * spatial_ndim  ).all()
     assert np.all(agent.state.orientation == (1,) * spatial_ndim)
@@ -120,12 +120,12 @@ def test_agent_state_setters(dims, new_pos, new_orient):
 
     # Test terminated setter
     agent.terminated = True
-    assert agent.terminated == True
+    assert agent.terminated is True
     agent.terminated = False
-    assert agent.terminated == False
+    assert agent.terminated is False
 
     # Test carrying setter
-    assert agent.carrying == None
+    assert agent.carrying is None
     payload = object()
     agent.carrying = payload
     assert agent.carrying == payload

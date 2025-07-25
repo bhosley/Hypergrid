@@ -1,4 +1,8 @@
-*.pyc
+# Python cache files
 *_cache*
+*.pyc
+# numba cached files
 *.nbc
 *.nbi
+# Workspace
+.vscode/*

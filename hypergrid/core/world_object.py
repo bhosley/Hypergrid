@@ -17,7 +17,7 @@ from ..utils.rendering import (
 
 if TYPE_CHECKING:
     from .agent import Agent
-    from ..hypergrid_env import HyperGrid
+    from ..hypergrid_env import HyperGridBase
 
 
 class WorldObjMeta(type):
@@ -219,7 +219,7 @@ class WorldObj(np.ndarray, metaclass=WorldObjMeta):
 
     # TODO: MultiGrid Ref
     def toggle(
-        self, env: MultiGridEnv, agent: Agent, pos: tuple[int, int]
+        self, env: HyperGridBase, agent: Agent, pos: tuple[int, int]
     ) -> bool:
         """
         Toggle the state of this object or trigger an action this object performs.

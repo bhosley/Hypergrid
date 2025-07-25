@@ -6,7 +6,7 @@ import pytest
 import numpy as np
 
 from hypergrid.core.space import NDSpace
-from hypergrid.core.world_object import WorldObj, Goal, Wall
+from hypergrid.core.world_object import WorldObj, Wall
 
 
 VALID_VALS = (

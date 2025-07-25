@@ -6,8 +6,7 @@ import pytest
 import numpy as np
 from numbers import Number
 
-from hypergrid.core.agent import Agent, AgentState
-from hypergrid.core.constants import Type
+from hypergrid.core.agent import Agent
 from hypergrid.core.world_object import WorldObj
 from hypergrid.hypergrid_env import HyperGrid
 
@@ -69,9 +68,9 @@ def test_env_dims_normalization(dims, expected_shape):
         WorldObj.dim,
     ), f"dims={dims} returned shape {shape} instead of {expected_shape}"
     ds = env.grid.dims
-    assert ds == [
-        *expected_shape
-    ], f"dims={ds} returned dims {ds} instead of {expected_shape}"
+    assert ds == [*expected_shape], (
+        f"dims={ds} returned dims {ds} instead of {expected_shape}"
+    )
     env.close()
 
 
@@ -90,9 +89,9 @@ def test_env_n_dims_normalization(n_dims, expected_shape):
         WorldObj.dim,
     ), f"n_dims={n_dims} returned shape {shape} instead of {expected_shape}"
     dims = env.grid.dims
-    assert dims == [
-        *expected_shape
-    ], f"n_dims={n_dims} returned dims {dims} instead of {expected_shape}"
+    assert dims == [*expected_shape], (
+        f"n_dims={n_dims} returned dims {dims} instead of {expected_shape}"
+    )
     env.close()
 
 
@@ -190,7 +189,7 @@ def test_env_reset():
             )
         )
         assert len(obs["direction"]) == env.n_dims
-        assert obs["mission"] != None
+        assert obs["mission"] is not None
     env.close()
 
 
@@ -219,5 +218,5 @@ def test_env_step():
             )
         )
         assert len(obs["direction"]) == env.n_dims
-        assert obs["mission"] != None
+        assert obs["mission"] is not None
     env.close()

@@ -1,12 +1,12 @@
 from __future__ import annotations
+
 import numpy as np
 from gymnasium import spaces
 from gymnasium.spaces import MultiDiscrete
 from numpy.typing import ArrayLike, NDArray as ndarray
-from collections.abc import Sequence
 
 from .actions import ActionSpec
-from .constants import Color, Direction, Type
+from .constants import Color, Type
 from .mission import Mission, MissionSpace
 from .world_object import WorldObj
 from ..utils.misc import PropertyAlias
@@ -49,7 +49,7 @@ class Agent:
         """
         if spatial_ndim <= 0:
             raise ValueError("Invalid dimension, must be > 0.")
-        if index != None and index < 0:
+        if index is not None and index < 0:
             raise ValueError("Invalid index, must be >= 0.")
         if view_size < 3:
             raise ValueError("View too small")
@@ -64,7 +64,6 @@ class Agent:
 
         # initialize state vector (vectorized over agents is handled at env-level)
         self.state: AgentState = AgentState(spatial_ndim=spatial_ndim)
-        # self.state: AgentState = AgentState(1, spatial_ndim=spatial_ndim)
 
         # Observation space: an array of shape (view_size,)*spatial_ndim + (WorldObj.dim,)
         obs_shape = (*[view_size] * spatial_ndim, WorldObj.dim)
@@ -117,22 +116,12 @@ class Agent:
     @property
     def front_pos(self) -> tuple[int, ...]:
         """
-        # Return the coordinates of the neighboring cell in the agent's facing direction.
-        # Directions are encoded as integers 0..(2*spatial_ndim - 1):
-        #     axis = dir // 2, sign = +1 if dir%2==0 else -1
-        Return the coordinates of the neighboring cell in the agent's orientation vector.
-        Moves along each axis by the orientation vector.
+        Return the coordinates of the cell in front of the agent,
+        the position plus the agent's orientation vector.
         """
-        # d = int(self.state.dir)
-        # axis = d // 2
-        # sign = 1 if (d % 2) == 0 else -1
-        # Move along each axis by the orientation vector
+        # TODO: np.add instead?
         delta = self.state.orientation
         current = self.state.pos
-        # return tuple(
-        #     coord + (sign if i == axis else 0)
-        #     for i, coord in enumerate(current)
-        # )
         return tuple(c + d for c, d in zip(current, delta))
 
     def reset(self, mission: Mission = Mission("maximize reward")):
@@ -158,7 +147,7 @@ class Agent:
         """
         # Example: always render into the last two dims
         # user must supply img appropriately projected
-        tri_fn = ...  # your rendering logic here
+        # tri_fn = ...  # your rendering logic here
 
 
 class AgentState(np.ndarray):
@@ -189,8 +178,8 @@ class AgentState(np.ndarray):
     def __new__(cls, *batch_dims: int, spatial_ndim: int):
         if spatial_ndim <= 0:
             raise ValueError("Invalid dimension, must be > 0.")
-        # Recompute slice indices dynamically
 
+        # Recompute slice indices dynamically
         AgentState.ORIENT_END = cls.ORIENT_START + spatial_ndim
         AgentState.POS_START = cls.ORIENT_END
         AgentState.POS_END = cls.POS_START + spatial_ndim

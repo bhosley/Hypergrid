@@ -266,13 +266,10 @@ def gen_obs_grids(
 
     # Process agent states
     agent_grid_encoding = agent_state.encode
-    # agent_grid_encoding = agent_state[..., AGENT_ENCODING_IDX]
-    # agent_dir = agent_state[..., AGENT_DIR_IDX]
     agent_dir = agent_state.dir
-    # agent_pos = agent_state[..., AGENT_POS_IDX]
     agent_pos = agent_state.pos
     agent_terminated = agent_state[..., AGENT_TERMINATED_IDX]
-    agent_carrying_encoding = agent_state[..., AGENT_CARRYING_IDX]
+    # agent_carrying_encoding = agent_state[..., AGENT_CARRYING_IDX]
 
     # Get grid encoding
     if num_agents > 1:
@@ -374,10 +371,7 @@ def get_vis_mask(obs_grid: ndarray[np.int_]) -> ndarray[np.bool_]:
     """
     # num_agents, width, height = obs_grid.shape[:3]
     see_behind_mask = get_see_behind_mask(obs_grid)
-    # vis_mask = np.zeros((num_agents, width, height), dtype=np.bool_)
-    vis_mask = np.zeros((*obs_grid.shape[:-1],))
-    # vis_mask = np.zeros((*obs_grid.shape[:-1],), dtype=np.bool_)
-    # vis_mask[:, width // 2, height - 1] = True # agent relative position
+    # vis_mask = np.zeros((*obs_grid.shape[:-1],))
 
     # TODO: Vis Mask should mask obstructed views
 
@@ -506,18 +500,6 @@ def get_view_coords(
         oriented = a_coord.reshape((*(agent_view_sizes[i],) * N, N))
         if not isinstance(a_dir, Iterable):
             raise TypeError(f"Unsupported dir type: {type(a_dir)}")
-            """Support for int dir encoding for ortholinear constrained versions
-        elif isinstance(a_dir, (int, np.int64, np.int32, np.int16, np.int8)):
-            _k = -1 if a_dir < 0 else 1
-            ax = abs(a_dir) - 1
-            if ax == 0:
-                if _k < 0:
-                    oriented = np.rot90(oriented,k=_k*2, axes=(0,1))
-            else:
-                oriented = np.rot90(oriented,k=_k, axes=(0,ax))
-            """
-        # if ind_0 < 0 , rot 180
-
         _k = 1
         if a_dir[0] < 0:
             oriented = np.rot90(oriented, k=2, axes=(0, 1))

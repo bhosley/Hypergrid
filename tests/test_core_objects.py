@@ -2,10 +2,10 @@ import sys
 
 sys.dont_write_bytecode = True
 
-import pytest
-import numpy as np
+# import pytest
+# import numpy as np
 
-from hypergrid.core.world_object import WorldObj
+# from hypergrid.core.world_object import WorldObj
 
 # def test_objects_types():
 #     """ """

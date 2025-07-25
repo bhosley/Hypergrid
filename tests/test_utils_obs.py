@@ -6,7 +6,6 @@ import pytest
 import numpy as np
 
 import hypergrid.utils.obs as OBS
-
 from hypergrid.hypergrid_env import HyperGrid
 from hypergrid.core.world_object import WorldObj
 

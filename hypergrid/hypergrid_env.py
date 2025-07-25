@@ -1,16 +1,11 @@
 from __future__ import annotations
 
 import gymnasium as gym
-
-# import math
 import numpy as np
 import pygame
+from abc import abstractmethod
 
-# import pygame.freetype
 
-from abc import ABC, abstractmethod
-
-# from collections import defaultdict
 from gymnasium import spaces
 from itertools import repeat
 from typing import Any, Callable, Iterable, Literal, Sequence, SupportsFloat
@@ -34,7 +29,7 @@ ObsType = dict[str, Any]
 
 class HyperGridBase(gym.Env, RandomMixin):
     """
-    Base class for multi-agent nD gridworld environments.
+    Base class for multi-agent n-D gridworld environments.
 
     :Agents:
 
@@ -168,7 +163,7 @@ class HyperGridBase(gym.Env, RandomMixin):
             elif isinstance(n_dims, int) and n_dims > 0:
                 self.n_dims = n_dims
             else:
-                raise ValueError(f"Invalid or missing n_dims or dims parameter")
+                raise ValueError("Invalid or missing n_dims or dims parameter")
             # Check for Grid size
             if not isinstance(grid_size, int) or (grid_size < 3):
                 grid_size = 10
@@ -216,7 +211,7 @@ class HyperGridBase(gym.Env, RandomMixin):
                 self.agent_view_sizes = np.array(agent_view_size)
             else:
                 raise TypeError(
-                    f"Invalid arg for agent_view_size, expect int or seq[int]"
+                    "Invalid arg for agent_view_size, expect int or seq[int]"
                 )
 
             # Set seeing through walls
@@ -229,7 +224,7 @@ class HyperGridBase(gym.Env, RandomMixin):
                 self.agent_see_through_walls = np.array(see_through_walls)
             else:
                 raise TypeError(
-                    f"Invalid arg for see_through_walls, expect bool or seq[bool]"
+                    "Invalid arg for see_through_walls, expect bool or seq[bool]"
                 )
 
         else:
@@ -258,9 +253,9 @@ class HyperGridBase(gym.Env, RandomMixin):
         self.step_count = 0
 
         # Other Attributes
-        assert isinstance(
-            max_steps, int
-        ), f"The argument max_steps must be an integer, got: {type(max_steps)}"
+        assert isinstance(max_steps, int), (
+            f"The argument max_steps must be an integer, got: {type(max_steps)}"
+        )
         self.max_steps = max_steps
         self.success_termination_mode = success_termination_mode
         self.failure_termination_mode = failure_termination_mode
@@ -354,7 +349,9 @@ class HyperGridBase(gym.Env, RandomMixin):
 
         return observations, infos
 
-    def step(self, actions: dict[AgentID, Sequence[int]]) -> tuple[
+    def step(
+        self, actions: dict[AgentID, Sequence[int]]
+    ) -> tuple[
         dict[AgentID, ObsType],
         dict[AgentID, SupportsFloat],
         dict[AgentID, bool],
@@ -680,7 +677,7 @@ class HyperGridBase(gym.Env, RandomMixin):
         dest_coords = agent.state.pos + agent.state.dir
         dest_obj = self.grid.get(dest_coords)
         # Check for environmental collision
-        if not dest_obj is None and not dest_obj.can_overlap():
+        if dest_obj is not None and not dest_obj.can_overlap():
             rewards[agent.index] -= agent.cost_collision_env
             return
         # Check for agent collision
@@ -741,7 +738,7 @@ class HyperGridBase(gym.Env, RandomMixin):
         # Perform interaction
         fwd_pos = agent.state.pos + agent.state.dir
         fwd_obj = self.grid.get(fwd_pos)
-        if type(fwd_obj) == Type.goal:
+        if type(fwd_obj) is Type.goal:
             self.on_success(agent, rewards)
 
     @abstractmethod
@@ -914,22 +911,22 @@ class OrthoHyperGrid(HyperGridBase):
         the object and the second one for the color.
         """
         # Map of object types to short string
-        OBJECT_TO_STR = {
-            "wall": "W",
-            "floor": "F",
-            "door": "D",
-            "key": "K",
-            "ball": "A",
-            "box": "B",
-            "goal": "G",
-            "lava": "V",
-        }
+        # OBJECT_TO_STR = {
+        #     "wall": "W",
+        #     "floor": "F",
+        #     "door": "D",
+        #     "key": "K",
+        #     "ball": "A",
+        #     "box": "B",
+        #     "goal": "G",
+        #     "lava": "V",
+        # }
 
-        #         # Map agent's direction to short string
-        #         AGENT_DIR_TO_STR = {0: '>', 1: 'V', 2: '<', 3: '^'}
+        # # Map agent's direction to short string
+        # AGENT_DIR_TO_STR = {0: '>', 1: 'V', 2: '<', 3: '^'}
 
-        # Get agent locations
-        location_to_agent = {tuple(agent.pos): agent for agent in self.agents}
+        # # Get agent locations
+        # location_to_agent = {tuple(agent.pos): agent for agent in self.agents}
 
         output = ""
         # For each pair of Dims:

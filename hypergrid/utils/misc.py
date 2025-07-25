@@ -1,5 +1,4 @@
 import functools
-from typing import Any
 from ..core.constants import Direction
 
 
@@ -45,11 +44,20 @@ class PropertyAlias(property):
         doc : str
             Docstring to append to the property's original docstring
         """
-        prop = lambda obj: getattr(
-            type(getattr(obj, attr_name)), attr_property_name
+
+        # prop = lambda obj: getattr(
+        #     type(getattr(obj, attr_name)), attr_property_name
+        # )
+        def prop(obj):
+            return getattr(type(getattr(obj, attr_name)), attr_property_name)
+
+        super().__init__(
+            fget=lambda obj: prop(obj).fget(getattr(obj, attr_name)),
+            fset=lambda obj, value: prop(obj).fset(
+                getattr(obj, attr_name), value
+            ),
+            fdel=lambda obj: prop(obj).fdel(getattr(obj, attr_name)),
+            doc=doc,
         )
-        fget = lambda obj: prop(obj).fget(getattr(obj, attr_name))
-        fset = lambda obj, value: prop(obj).fset(getattr(obj, attr_name), value)
-        fdel = lambda obj: prop(obj).fdel(getattr(obj, attr_name))
-        super().__init__(fget, fset, fdel, doc=doc)
+        # super().__init__(fget, fset, fdel, doc=doc)
         self.__doc__ = doc

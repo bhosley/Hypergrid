@@ -25,6 +25,7 @@ ruff = "^0.12.5"
 
 [tool.ruff]
 line-length = 80
+lint.ignore = ["E402"] # Module level import not at top of file
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]

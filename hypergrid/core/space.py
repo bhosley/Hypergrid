@@ -1,15 +1,11 @@
 from __future__ import annotations
-
 import numpy as np
 
-from collections import defaultdict
-from functools import cached_property
 from itertools import product
 from numpy.typing import NDArray as ndarray
-from typing import Any, Callable, Iterable, Sequence
+from typing import Any, Callable, Sequence
 
 # from .agent import Agent
-from .constants import Type, TILE_PIXELS
 from .world_object import Wall, WorldObj
 
 # from ..utils.rendering import (
@@ -50,11 +46,8 @@ class NDSpace:
         if not all((isinstance(dn, int) and dn > 0 for dn in dims)):
             raise ValueError("One or more dimensions are invalid.")
 
-        self.world_objects: dict[tuple[int, ...], WorldObj] = (
-            {}
-        )  # indexed by location
-        # self.state: ndarray = np.zeros((*dims, WorldObj.dim), dtype=int)
-        # self.state[...] = WorldObj.empty()
+        # world objects indexed by location
+        self.world_objects: dict[tuple[int, ...], WorldObj] = {}
         self.dims = [*dims]
         self.state: ndarray = np.full((*dims, WorldObj.dim), WorldObj.empty())
 
@@ -68,13 +61,9 @@ class NDSpace:
         """
         Return a list of all world objects in the grid.
         """
-        # return [self.get(i) for i,_ in np.ndenumerate(np.zeros(self.dims))]
         return [self.get(idx) for idx in np.ndindex(*self.dims)]
-        # return [self.get(i) for i,_ in np.ndenumerate(self.state)]
-        # return [self.get(i, j) for i in range(self.width) for j in range(self.height)]
 
     def set(self, index: Sequence[int], obj: WorldObj | None):
-        # def set(self, x: int, y: int, obj: WorldObj | None):
         """
         Set a world object at the given coordinates.
 
@@ -148,8 +137,8 @@ class NDSpace:
             range(
                 s,
                 e + (1 if e >= s else -1),  # End inclusive
-                1 if e >= s else -1,
-            )  # Reverse order if start < end
+                1 if e >= s else -1,  # Reverse order if start < end
+            )
             for s, e in zip(start, end)
         )
         points = list(product(*ranges))
