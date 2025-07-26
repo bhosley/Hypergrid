@@ -193,6 +193,8 @@ def test_env_reset():
     env.close()
 
 
+# TODO: Verify prevent agent spawning inside wall
+
 # ------------------------------- Env Step Tests -------------------------------
 
 

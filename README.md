@@ -2,7 +2,6 @@
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 [![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit&logoColor=white)](https://pre-commit.com/)
 
-
 <!--
 <p align="center">
     <a href = "https://minigrid.farama.org/" target = "_blank" > <img src="https://raw.githubusercontent.com/Farama-Foundation/Minigrid/master/minigrid-text.png" width="500px"/> </a>
@@ -48,7 +47,7 @@ To install required dependencies for development, run:
 pip install -e ".[dev]"
 ```
 
-This package requires Python 3.9 or later.
+This package requires Python 3.13 or later.
 
 # Environments
 

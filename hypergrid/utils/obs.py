@@ -4,7 +4,7 @@ from itertools import product
 from typing import Iterable
 
 from ..core.agent import AgentState
-from ..core.constants import Color, Direction, State, Type
+from ..core.constants import Color, State, Type
 from ..core.world_object import Wall, WorldObj
 
 from numpy.typing import NDArray as ndarray
@@ -37,10 +37,10 @@ OPEN = int(State.open)
 CLOSED = int(State.closed)
 LOCKED = int(State.locked)
 
-RIGHT = int(Direction.right)
-LEFT = int(Direction.left)
-UP = int(Direction.up)
-DOWN = int(Direction.down)
+# RIGHT = int(Direction.right)
+# LEFT = int(Direction.left)
+# UP = int(Direction.up)
+# DOWN = int(Direction.down)
 
 
 ### Observation Functions

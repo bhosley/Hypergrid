@@ -5,10 +5,10 @@ import numpy as np
 import pygame
 from abc import abstractmethod
 
-
+from collections.abc import Iterable, Sequence
 from gymnasium import spaces
 from itertools import repeat
-from typing import Any, Callable, Iterable, Literal, Sequence, SupportsFloat
+from typing import Any, Callable, Literal, SupportsFloat, TypeAlias
 
 from .core.actions import ActionSpec, OrthogonalActionSpec
 from .core.agent import Agent, AgentState
@@ -21,13 +21,13 @@ from .utils.random import RandomMixin
 
 ### Typing
 
-AgentID = int
-ObsType = dict[str, Any]
+AgentID: TypeAlias = int
+ObsType: TypeAlias = dict[str, Any]
 
 ### Environment
 
 
-class HyperGridBase(gym.Env, RandomMixin):
+class HyperGridEnv(gym.Env, RandomMixin):
     """
     Base class for multi-agent n-D gridworld environments.
 
@@ -100,7 +100,7 @@ class HyperGridBase(gym.Env, RandomMixin):
         agent_pov: bool = False,
         agent_start_pos: tuple[int, int] | None = None,
         agent_start_dir: Direction | None = None,
-        agent_action_spec: ActionSpec | None = None,
+        agent_action_spec: OrthogonalActionSpec | None = None,
         **kwargs,
     ):
         """
@@ -712,7 +712,7 @@ class HyperGridBase(gym.Env, RandomMixin):
         """
         loc = agent.pos
         if isinstance(self.grid.get(loc), Lava):
-            self._on_failure(agent)
+            self._on_failure(agent, rewards)
 
     @abstractmethod
     def _agent_interaction(
@@ -845,19 +845,14 @@ class HyperGridBase(gym.Env, RandomMixin):
         return rewards
 
 
-class HyperGrid(HyperGridBase):
+class HyperGrid(HyperGridEnv):
     def __init__(self, **kwargs):
-        super().__init__(**kwargs)
+        super().__init__(agent_action_spec=ActionSpec, **kwargs)
 
     # def gen_obs(self) -> dict[AgentID, ObsType]:
     #     obs = super().gen_obs()
     #     #TODO: !Vis Channels here - Seems like a good spot
     #     return obs
-
-
-class OrthoHyperGrid(HyperGridBase):
-    def __init__(self, **kwargs):
-        super().__init__(agent_action_spec=OrthogonalActionSpec, **kwargs)
 
     #   def handle_action():
     #  super or whatever:

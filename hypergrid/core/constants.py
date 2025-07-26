@@ -103,16 +103,17 @@ class Direction(enum.IntEnum):
     Enumeration of agent directions.
     """
 
-    right = 0
-    down = 1
-    left = 2
-    up = 3
+    # right = 0
+    # down = 1
+    # left = 2
+    # up = 3
 
     def to_vec(self) -> ndarray[np.int8]:
         """
         Return the vector corresponding to this ``Direction``.
         """
-        return DIR_TO_VEC[self]
+        # return DIR_TO_VEC[self]
+        return
 
 
 ### Minigrid Compatibility
