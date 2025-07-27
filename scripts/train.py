@@ -22,10 +22,11 @@ from ray.rllib.core.rl_module import MultiRLModuleSpec, RLModuleSpec
 
 # from ray.rllib.core.rl_module.apis import ValueFunctionAPI
 # from ray.rllib.core.rl_module.torch import TorchRLModule
-# from ray.rllib.utils.from_config import NotProvided
+from ray.rllib.utils.from_config import NotProvided
 from ray.tune.registry import get_trainable_cls, register_env
 
 # from multigrid.core.constants import Direction
+
 
 # ### Helper Methods
 
@@ -94,7 +95,7 @@ def find_checkpoint_dir(search_dir: Path | str | None) -> Path | None:
 
 #     def forward(self, x):
 #         x = x[None] if x.ndim == 3 else x # add batch dimension
-#         x = x.permute(0, 3, 1, 2) # channels-first (NHWC -> NCHW)
+#         x = x.permute(0, 3, 1, 2) # channels-first (N H W C -> N C H W)
 #         return self.model(x)
 
 
@@ -163,8 +164,8 @@ def get_algorithm_config(
     num_agents: int = 2,
     num_workers: int = 0,
     num_gpus: int = 0,
-    lr: float | None = None,
-    batch_size: int | None = None,
+    lr: float | None = NotProvided,
+    batch_size: int | None = NotProvided,
     # lstm: bool = False, TODO: implement LSTM model
     # centralized_critic: bool = False, TODO: implement centralized critic
     **kwargs,

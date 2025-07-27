@@ -43,6 +43,7 @@ class ActionSpec:
         return {k: action[i] for k, i in self.indices.items()}
 
 
+@dataclass
 class OrthogonalActionSpec(ActionSpec):
     """
     ActionSpec subtype with ortholinear (axis-aligned) constrained orientation.

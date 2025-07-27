@@ -67,12 +67,13 @@ class Agent:
 
         # Observation space: an array of shape (view_size,)*spatial_ndim + (WorldObj.dim,)
         obs_shape = (*[view_size] * spatial_ndim, WorldObj.dim)
+
         self.observation_space = spaces.Dict(
             {
                 "image": spaces.Box(
                     low=0, high=255, shape=obs_shape, dtype=np.uint8
                 ),
-                "orientation": MultiDiscrete([3] * spatial_ndim),
+                "direction": MultiDiscrete([3] * spatial_ndim),
                 "mission": mission_space,
             }
         )

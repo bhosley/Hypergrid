@@ -100,7 +100,7 @@ class HyperGridEnv(gym.Env, RandomMixin):
         agent_pov: bool = False,
         agent_start_pos: tuple[int, int] | None = None,
         agent_start_dir: Direction | None = None,
-        agent_action_spec: OrthogonalActionSpec | None = None,
+        agent_action_spec: ActionSpec | None = OrthogonalActionSpec,
         **kwargs,
     ):
         """
@@ -345,7 +345,7 @@ class HyperGridEnv(gym.Env, RandomMixin):
         if self.render_mode == "human":
             self.render()
 
-        infos = {}
+        infos = dict(enumerate(repeat({}, self.num_agents)))
 
         return observations, infos
 
@@ -386,7 +386,7 @@ class HyperGridEnv(gym.Env, RandomMixin):
         terminations = dict(enumerate(self.agent_states.terminated))
         truncated = self.step_count >= self.max_steps
         truncations = dict(enumerate(repeat(truncated, self.num_agents)))
-        infos = dict(enumerate(repeat(None, self.num_agents)))
+        infos = dict(enumerate(repeat({}, self.num_agents)))
 
         # Rendering
         if self.render_mode == "human":
@@ -847,7 +847,7 @@ class HyperGridEnv(gym.Env, RandomMixin):
 
 class HyperGrid(HyperGridEnv):
     def __init__(self, **kwargs):
-        super().__init__(agent_action_spec=ActionSpec, **kwargs)
+        super().__init__(**kwargs)
 
     # def gen_obs(self) -> dict[AgentID, ObsType]:
     #     obs = super().gen_obs()
