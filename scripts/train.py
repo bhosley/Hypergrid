@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
-import hypergrid.rllib as HRL
+import hypergrid.rllib as HRC
 import os
 import random
 import ray
@@ -11,7 +11,7 @@ import ray
 # import ray.tune
 import torch
 
-# import torch.nn as nn
+import torch.nn as nn
 from pathlib import Path
 from typing import Callable
 
@@ -20,13 +20,13 @@ from ray.rllib.algorithms import AlgorithmConfig
 # from ray.rllib.core.columns import Columns
 from ray.rllib.core.rl_module import MultiRLModuleSpec, RLModuleSpec
 
-# from ray.rllib.core.rl_module.apis import ValueFunctionAPI
-# from ray.rllib.core.rl_module.torch import TorchRLModule
+from ray.rllib.core.rl_module.apis import ValueFunctionAPI
+from ray.rllib.core.rl_module.torch import TorchRLModule
 from ray.rllib.utils.from_config import NotProvided
-from ray.tune.registry import get_trainable_cls, register_env
+from ray.tune.registry import get_trainable_cls  # , register_env
 
 # from multigrid.core.constants import Direction
-
+HRC
 
 # ### Helper Methods
 
@@ -136,22 +136,72 @@ def find_checkpoint_dir(search_dir: Path | str | None) -> Path | None:
 
 
 ### Environment
-def register_new_env(
-    env: str,
-    num_agents: int,
-    env_config: dict,
-    num_timesteps: int,
-):
-    # TODO: add env string parser
-    # Parse String
-    # hyper - task - ... - dims
-    from hypergrid.envs import EmptyEnv
+# def register_new_env(
+#     env: str,
+#     num_agents: int,
+#     env_config: dict,
+#     num_timesteps: int,
+# ):
+#     # TODO: add env string parser
+#     # Parse String
+#     # hyper - task - ... - dims
+#     from hypergrid.envs import EmptyEnv
 
-    task = ""
-    env = EmptyEnv
-    dims = [8, 8]
-    dim_string = "8x8"
-    register_env(f"HyperGrid-{task}-{dim_string}", lambda _: env(dims=dims))
+#     task = ""
+#     env = EmptyEnv
+#     dims = [8, 8]
+#     dim_string = "8x8"
+#     register_env(f"HyperGrid-{task}-{dim_string}", lambda _: env(dims=dims))
+
+
+num_missions = 4
+
+
+class CustomTorchModule(TorchRLModule, ValueFunctionAPI):
+    def setup(self) -> None:
+        # Manually build sub-nets for each part of the Dict:
+        self.img_encoder = nn.Sequential(
+            nn.Conv2d(3, 32, 3, stride=1),
+            nn.ReLU(),
+            nn.Flatten(),
+            nn.Linear(32 * 5 * 5, 128),
+        )
+        self.ori_encoder = nn.Sequential(
+            nn.Linear(self.observation_space["direction"].nvec.sum(), 16),
+            nn.ReLU(),
+        )
+        self.mis_encoder = nn.Embedding(num_missions, 8)
+
+        # Define a fusion trunk and heads:
+        self.trunk = nn.Sequential(
+            nn.Linear(128 + 16 + 8, 64),
+            nn.ReLU(),
+        )
+        self.pi_head = nn.Linear(64, self.action_space.n)
+        self.value_head = nn.Linear(64, 1)
+
+    # def _forward_train(self, batch:dict, **kwargs):
+    #     img = batch["obs"]["image"].float() / 255.0
+    #     ori = batch["obs"]["direction"].float()
+    #     miss = batch["obs"]["mission"].long()
+    #     z_img = self.img_encoder(img)
+    #     z_ori = self.ori_encoder(ori)
+    #     z_mis = self.mis_encoder(miss)
+    #     z = torch.cat([z_img, z_ori, z_mis], dim=1)
+    #     logits = self.pi_head(self.trunk(z))
+    #     self._value_out = self.value_head(self.trunk(z)).squeeze(1)
+    #     return logits, [], {}
+
+    # For VF API
+    # def compute_values(self, batch, embeddings=None):
+    #     if embeddings is None:
+    #         x = self.base(preprocess_batch(batch))
+    #         embeddings = self.critic(batch.get("value_inputs", x))
+
+    #     return embeddings.squeeze(-1)
+
+    # def get_initial_state(self):
+    #     return {}
 
 
 ### Training
@@ -202,6 +252,7 @@ def get_algorithm_config(
                     f"policy_{i}": RLModuleSpec(
                         # TODO: Validate AgentModule
                         # module_class=AgentModule
+                        module_class=CustomTorchModule
                     )
                     for i in range(num_agents)
                 }
@@ -303,10 +354,10 @@ if __name__ == "__main__":
     args = parser.parse_args()
     config = get_algorithm_config(**vars(args))
 
-    if args.env not in HRL.CONFIGURATIONS:
-        # register env
-        # TODO: add env registerer
-        pass
+    # if args.env not in HRL.CONFIGURATIONS:
+    #     # register env
+    #     # TODO: add env registerer
+    #     pass
 
     print()
     print(f"Running with following CLI options: {args}")

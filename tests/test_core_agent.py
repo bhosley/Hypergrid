@@ -58,11 +58,11 @@ def test_agent_initialization_and_obs_space(spatial_ndim, view_size):
 
     # Check observation space keys and types
     assert "image" in agent.observation_space.spaces
-    assert "orientation" in agent.observation_space.spaces
+    assert "direction" in agent.observation_space.spaces
     assert "mission" in agent.observation_space.spaces
     # Check observation space shapes and types
     image_space = agent.observation_space["image"]
-    orient_space = agent.observation_space["orientation"]
+    orient_space = agent.observation_space["direction"]
     mission_space = agent.observation_space["mission"]
 
     assert image_space.dtype == np.uint8

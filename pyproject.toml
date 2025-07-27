@@ -20,10 +20,24 @@ dependencies = [
 [tool.poetry]
 packages = [{include = "hypergrid", from = "."}]
 
+[tool.poetry.group.dev]
+optional = true
+
 [tool.poetry.group.dev.dependencies]
 pre-commit = "^4.2.0"
 pytest = "^8.4.1"
 ruff = "^0.12.5"
+
+[tool.poetry.group.rl_scripts]
+optional = true
+
+[tool.poetry.group.rl_scripts.dependencies]
+ray = {extras = ["tune"], version = "^2.48.0"}
+torch = "^2.7.1"
+scikit-learn = "^1.7.1"
+dm-tree = "^0.1.9"
+pillow = "^11.3.0"
+lz4 = "^4.4.4"
 
 [tool.ruff]
 line-length = 80
