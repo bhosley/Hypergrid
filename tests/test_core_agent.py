@@ -9,7 +9,7 @@ from gymnasium.spaces import MultiDiscrete
 
 from hypergrid.core.agent import Agent, AgentState
 from hypergrid.core.world_object import WorldObj
-from hypergrid.core.mission import MissionSpace
+# from hypergrid.core.mission import MissionSpace
 
 
 # ------------------------- Single Agent Instantiation -------------------------
@@ -59,11 +59,11 @@ def test_agent_initialization_and_obs_space(spatial_ndim, view_size):
     # Check observation space keys and types
     assert "image" in agent.observation_space.spaces
     assert "direction" in agent.observation_space.spaces
-    assert "mission" in agent.observation_space.spaces
+    # assert "mission" in agent.observation_space.spaces
     # Check observation space shapes and types
     image_space = agent.observation_space["image"]
     orient_space = agent.observation_space["direction"]
-    mission_space = agent.observation_space["mission"]
+    # mission_space = agent.observation_space["mission"]
 
     assert image_space.dtype == np.uint8
     assert image_space.shape == (agent.view_size,) * spatial_ndim + (
@@ -71,7 +71,7 @@ def test_agent_initialization_and_obs_space(spatial_ndim, view_size):
     )
     assert isinstance(orient_space, MultiDiscrete)
     assert list(orient_space.nvec) == [3] * spatial_ndim
-    assert isinstance(mission_space, MissionSpace)
+    # assert isinstance(mission_space, MissionSpace)
 
     # Check action space type and parameters
     assert isinstance(agent.action_space, MultiDiscrete)

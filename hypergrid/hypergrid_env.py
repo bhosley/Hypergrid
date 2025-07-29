@@ -419,7 +419,7 @@ class HyperGridEnv(gym.Env, RandomMixin):
             observations[i] = {
                 "image": image[i],
                 "direction": direction[i],
-                "mission": self.agents[i].mission,
+                # "mission": self.agents[i].mission,
             }
         return observations
 

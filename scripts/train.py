@@ -15,16 +15,22 @@ import torch.nn as nn
 from pathlib import Path
 from typing import Callable
 
+from gymnasium.spaces import MultiDiscrete
+
 from ray.rllib.algorithms import AlgorithmConfig
 
-# from ray.rllib.core.columns import Columns
+from ray.rllib.core.columns import Columns
 from ray.rllib.core.rl_module import MultiRLModuleSpec, RLModuleSpec
 
 from ray.rllib.core.rl_module.apis import ValueFunctionAPI
 from ray.rllib.core.rl_module.torch import TorchRLModule
+
+# from ray.rllib.models.torch.torch_action_dist import TorchMultiCategorical # Old API Stack
+from ray.rllib.models.torch.torch_distributions import TorchMultiCategorical
 from ray.rllib.utils.from_config import NotProvided
 from ray.tune.registry import get_trainable_cls  # , register_env
 
+# from ray.rllib.connectors.env_to_module.flatten_observations import FlattenObservations
 # from multigrid.core.constants import Direction
 HRC
 
@@ -70,69 +76,155 @@ def find_checkpoint_dir(search_dir: Path | str | None) -> Path | None:
         return None
 
 
-# def preprocess_batch(batch: dict) -> torch.Tensor:
-#     image = batch['obs']['image']
-#     direction = batch['obs']['direction']
-#     direction = 2 * torch.pi * (direction / len(Direction))
-#     direction = torch.stack([torch.cos(direction), torch.sin(direction)], dim=-1)
-#     direction = direction[..., None, None, :].expand(*image.shape[:-1], 2)
-#     x = torch.cat([image, direction], dim=-1).float()
-#     return x
+def preprocess_batch(batch: dict) -> torch.Tensor:
+    image = batch["obs"]["image"]
+    direction = batch["obs"]["direction"]
+    # direction = 2 * torch.pi * (direction / len(Direction))
+    # direction = torch.stack([torch.cos(direction), torch.sin(direction)], dim=-1)
+    # direction = direction[..., None, None, :].expand(*image.shape[:-1], 2)
+    batch_size, ndims = direction.shape
+    # 1) reshape to [b, 1, 1, …, 1, d]
+    direction = direction.view(batch_size, *([1] * ndims), ndims)
+    # 2) broadcast to [b, v0, v1, …, vD, d]
+    direction = direction.expand(*image.shape[:-1], ndims)
+    x = torch.cat([image, direction], dim=-1).float()
+    return x
 
 
 # ### Models
 
-# class MultiGridEncoder(nn.Module):
 
-#     def __init__(self, in_channels: int = 23):
-#         super().__init__()
-#         self.model = nn.Sequential(
-#             nn.Conv2d(in_channels, 16, (3, 3)), nn.ReLU(),
-#             nn.Conv2d(16, 32, (3, 3)), nn.ReLU(),
-#             nn.Conv2d(32, 64, (3, 3)), nn.ReLU(),
-#             nn.Flatten(),
-#         )
+class MultiGridEncoder(nn.Module):
+    def __init__(self, in_channels: int = 23):
+        super().__init__()
+        self.model = nn.Sequential(
+            nn.Conv2d(in_channels, 16, (3, 3)),
+            nn.ReLU(),
+            nn.Conv2d(16, 32, (3, 3)),
+            nn.ReLU(),
+            nn.Conv2d(32, 64, (3, 3)),
+            nn.ReLU(),
+            nn.Flatten(),
+        )
 
-#     def forward(self, x):
-#         x = x[None] if x.ndim == 3 else x # add batch dimension
-#         x = x.permute(0, 3, 1, 2) # channels-first (N H W C -> N C H W)
-#         return self.model(x)
+    def forward(self, x):
+        x = x[None] if x.ndim == 3 else x  # add batch dimension
+        # x = x.permute(0, 3, 1, 2) # channels-first (N H W C -> N C H W)
+        x = x.permute(
+            0, -1, *(range(1, x.ndim - 1))
+        )  # channels-first (N H W C -> N C H W)
+        return self.model(x)
 
 
-# class AgentModule(TorchRLModule, ValueFunctionAPI):
-#     def setup(self):
-#         self.base = nn.Identity()
-#         self.actor = nn.Sequential(
-#             MultiGridEncoder(in_channels=23),
-#             nn.Linear(64, 64), nn.ReLU(),
-#             nn.Linear(64, 7),
-#         )
-#         self.critic = nn.Sequential(
-#             MultiGridEncoder(in_channels=23),
-#             nn.Linear(64, 64), nn.ReLU(),
-#             nn.Linear(64, 1),
-#         )
+class MultiDiscreteHead(nn.Module):
+    def __init__(self, feat_dim, nvec):
+        super().__init__()
+        # keep your branches in a ModuleList so parameters register
+        self.branches = nn.ModuleList(
+            [
+                nn.Sequential(
+                    nn.Linear(feat_dim, 64),
+                    nn.ReLU(),
+                    nn.Linear(64, n),
+                )
+                for n in nvec
+            ]
+        )
 
-#     def _forward(self, batch, **kwargs):
-#         x = self.base(preprocess_batch(batch))
-#         return {Columns.ACTION_DIST_INPUTS: self.actor(x)}
+    def forward(self, features):
+        # return a *list* of logits tensors
+        return [branch(features) for branch in self.branches]
 
-#     def _forward_train(self, batch, **kwargs):
-#         x = self.base(preprocess_batch(batch))
-#         return {
-#             Columns.ACTION_DIST_INPUTS: self.actor(x),
-#             Columns.EMBEDDINGS: self.critic(batch.get('value_inputs', x)),
-#         }
 
-#     def compute_values(self, batch, embeddings = None):
-#         if embeddings is None:
-#             x = self.base(preprocess_batch(batch))
-#             embeddings = self.critic(batch.get('value_inputs', x))
+class AgentModule(TorchRLModule, ValueFunctionAPI):
+    def setup(self):
+        self.base = nn.Identity()
 
-#         return embeddings.squeeze(-1)
+        # self.actor = nn.Sequential(
+        #     MultiGridEncoder(in_channels=22),
+        #     nn.Linear(64, 64), nn.ReLU(),
+        #     nn.Linear(64, 7),
+        # )
+        # self.critic = nn.Sequential(
+        #     MultiGridEncoder(in_channels=22),
+        #     nn.Linear(64, 64), nn.ReLU(),
+        #     nn.Linear(64, 1),
+        # )
 
-#     def get_initial_state(self):
-#         return {}
+        # 1) shared encoder
+        in_ch = (
+            self.observation_space["image"].shape[-1]
+            + self.observation_space["direction"].shape[-1]
+        )
+        self.encoder = MultiGridEncoder(in_channels=in_ch)
+        feat_dim = self.encoder.out_dim
+
+        # 2) critic head (unchanged)
+        self.critic = nn.Sequential(
+            nn.Linear(feat_dim, 64),
+            nn.Linear(64, 64),
+            nn.ReLU(),
+            nn.Linear(64, 1),
+        )
+
+        # 3) actor head(s)
+        act_space = self.action_space
+        if isinstance(act_space, MultiDiscrete):
+            # one small MLP per branch
+            # actor_head = nn.ModuleList([
+            #     nn.Sequential(
+            #         nn.Linear(feat_dim, 64),
+            #         nn.Linear(64, 64),
+            #         nn.ReLU(),
+            #         nn.Linear(64, n),
+            #     )
+            #     for n in act_space.nvec
+            # ])
+            # raise InterruptedError(f"AgentModule.setup (evoked branched agent) identified action space as {type(act_space)}")
+            actor_head = MultiDiscreteHead(feat_dim, act_space.nvec)
+
+            class TMC(TorchMultiCategorical):
+                def from_logits(
+                    cls,
+                    logits: "torch.Tensor",
+                    input_lens: list[int] = act_space.nvec,
+                    temperatures: list[float] = None,
+                    **kwargs,
+                ):
+                    super().from_logits(
+                        cls, logits, input_lens, temperatures, **kwargs
+                    )
+
+            self.action_dist_cls = TMC
+        else:
+            actor_head = nn.Sequential(
+                nn.Linear(feat_dim, 64),
+                nn.Linear(64, 64),
+                nn.ReLU(),
+                nn.Linear(64, act_space.n),
+            )
+        self.actor = actor_head
+
+    def _forward(self, batch, **kwargs):
+        x = self.base(preprocess_batch(batch))
+        return {Columns.ACTION_DIST_INPUTS: self.actor(x)}
+
+    def _forward_train(self, batch, **kwargs):
+        x = self.base(preprocess_batch(batch))
+        return {
+            Columns.ACTION_DIST_INPUTS: self.actor(x),
+            Columns.EMBEDDINGS: self.critic(batch.get("value_inputs", x)),
+        }
+
+    def compute_values(self, batch, embeddings=None):
+        if embeddings is None:
+            x = self.base(preprocess_batch(batch))
+            embeddings = self.critic(batch.get("value_inputs", x))
+
+        return embeddings.squeeze(-1)
+
+    def get_initial_state(self):
+        return {}
 
 
 ### Environment
@@ -154,54 +246,53 @@ def find_checkpoint_dir(search_dir: Path | str | None) -> Path | None:
 #     register_env(f"HyperGrid-{task}-{dim_string}", lambda _: env(dims=dims))
 
 
-num_missions = 4
+# num_missions = 4
+# class CustomTorchModule(TorchRLModule):
+# # class CustomTorchModule(TorchRLModule, ValueFunctionAPI):
+#     def setup(self) -> None:
+#         # Manually build sub-nets for each part of the Dict:
+#         self.img_encoder = nn.Sequential(
+#             nn.Conv2d(3, 32, 3, stride=1),
+#             nn.ReLU(),
+#             nn.Flatten(),
+#             nn.Linear(32 * 5 * 5, 128),
+#         )
+#         self.ori_encoder = nn.Sequential(
+#             nn.Linear(self.observation_space["direction"].nvec.sum(), 16),
+#             nn.ReLU(),
+#         )
+#         self.mis_encoder = nn.Embedding(num_missions, 8)
 
+#         # Define a fusion trunk and heads:
+#         self.trunk = nn.Sequential(
+#             nn.Linear(128 + 16 + 8, 64),
+#             nn.ReLU(),
+#         )
+#         self.pi_head = nn.Linear(64, self.action_space.n)
+#         self.value_head = nn.Linear(64, 1)
 
-class CustomTorchModule(TorchRLModule, ValueFunctionAPI):
-    def setup(self) -> None:
-        # Manually build sub-nets for each part of the Dict:
-        self.img_encoder = nn.Sequential(
-            nn.Conv2d(3, 32, 3, stride=1),
-            nn.ReLU(),
-            nn.Flatten(),
-            nn.Linear(32 * 5 * 5, 128),
-        )
-        self.ori_encoder = nn.Sequential(
-            nn.Linear(self.observation_space["direction"].nvec.sum(), 16),
-            nn.ReLU(),
-        )
-        self.mis_encoder = nn.Embedding(num_missions, 8)
+# def _forward_train(self, batch:dict, **kwargs):
+#     img = batch["obs"]["image"].float() / 255.0
+#     ori = batch["obs"]["direction"].float()
+#     miss = batch["obs"]["mission"].long()
+#     z_img = self.img_encoder(img)
+#     z_ori = self.ori_encoder(ori)
+#     z_mis = self.mis_encoder(miss)
+#     z = torch.cat([z_img, z_ori, z_mis], dim=1)
+#     logits = self.pi_head(self.trunk(z))
+#     self._value_out = self.value_head(self.trunk(z)).squeeze(1)
+#     return logits, [], {}
 
-        # Define a fusion trunk and heads:
-        self.trunk = nn.Sequential(
-            nn.Linear(128 + 16 + 8, 64),
-            nn.ReLU(),
-        )
-        self.pi_head = nn.Linear(64, self.action_space.n)
-        self.value_head = nn.Linear(64, 1)
+# For VF API
+# def compute_values(self, batch, embeddings=None):
+#     if embeddings is None:
+#         x = self.base(preprocess_batch(batch))
+#         embeddings = self.critic(batch.get("value_inputs", x))
 
-    # def _forward_train(self, batch:dict, **kwargs):
-    #     img = batch["obs"]["image"].float() / 255.0
-    #     ori = batch["obs"]["direction"].float()
-    #     miss = batch["obs"]["mission"].long()
-    #     z_img = self.img_encoder(img)
-    #     z_ori = self.ori_encoder(ori)
-    #     z_mis = self.mis_encoder(miss)
-    #     z = torch.cat([z_img, z_ori, z_mis], dim=1)
-    #     logits = self.pi_head(self.trunk(z))
-    #     self._value_out = self.value_head(self.trunk(z)).squeeze(1)
-    #     return logits, [], {}
+#     return embeddings.squeeze(-1)
 
-    # For VF API
-    # def compute_values(self, batch, embeddings=None):
-    #     if embeddings is None:
-    #         x = self.base(preprocess_batch(batch))
-    #         embeddings = self.critic(batch.get("value_inputs", x))
-
-    #     return embeddings.squeeze(-1)
-
-    # def get_initial_state(self):
-    #     return {}
+# def get_initial_state(self):
+#     return {}
 
 
 ### Training
@@ -251,8 +342,7 @@ def get_algorithm_config(
                 rl_module_specs={
                     f"policy_{i}": RLModuleSpec(
                         # TODO: Validate AgentModule
-                        # module_class=AgentModule
-                        module_class=CustomTorchModule
+                        module_class=AgentModule
                     )
                     for i in range(num_agents)
                 }
@@ -295,6 +385,12 @@ def train(
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
+
+    parser.add_argument(
+        "--build-test",
+        action="store_true",
+        help="Skip training, just test-build the config.",
+    )
 
     parser.add_argument(
         "--algo",
@@ -353,6 +449,9 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
     config = get_algorithm_config(**vars(args))
+    if args.build_test:
+        config.build_algo()
+        exit()
 
     # if args.env not in HRL.CONFIGURATIONS:
     #     # register env

@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import numpy as np
 from gymnasium import spaces
-from gymnasium.spaces import MultiDiscrete
 from numpy.typing import ArrayLike, NDArray as ndarray
 
 from .actions import ActionSpec
@@ -71,10 +70,15 @@ class Agent:
         self.observation_space = spaces.Dict(
             {
                 "image": spaces.Box(
-                    low=0, high=255, shape=obs_shape, dtype=np.uint8
+                    low=0,
+                    high=255,
+                    shape=obs_shape,
+                    dtype=np.uint8,
+                    # low=0, high=255, shape=obs_shape, #dtype=np.float32
                 ),
-                "direction": MultiDiscrete([3] * spatial_ndim),
-                "mission": mission_space,
+                # "direction": spaces.Discrete(spatial_ndim),
+                "direction": spaces.MultiDiscrete([3] * spatial_ndim),
+                # "mission": mission_space,
             }
         )
 

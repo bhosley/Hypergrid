@@ -31,6 +31,7 @@ Wrap an environment class with :func:`.to_rllib_env()`:
 """
 
 import gymnasium as gym
+# import numpy as np
 
 from ray.rllib.env import MultiAgentEnv
 from ray.tune.registry import register_env
@@ -52,6 +53,15 @@ class RLlibWrapper(MultiAgentEnv):
         self.agents = list(range(len(env.unwrapped.agents)))
         self.possible_agents = self.agents[:]
 
+        # self.observation_space = env.observation_space
+        # for agent,obs in self.observation_space.items():
+        #     agent_im = env.observation_space[agent]["image"]
+        #     obs["image"] = gym.spaces.Box(
+        #         float(agent_im.low_repr),
+        #         float(agent_im.high_repr),
+        #         (np.prod(agent_im._shape),),
+        #         dtype=agent_im.dtype)
+
     def reset(self, *args, **kwargs):
         return self.env.reset(*args, **kwargs)
 
@@ -64,10 +74,27 @@ class RLlibWrapper(MultiAgentEnv):
         return obs, rewards, terminations, truncations, infos
 
     def get_observation_space(self, agent_index: int):
+        # return self.observation_space[agent_index]
         return self.env.unwrapped.agents[agent_index].observation_space
 
     def get_action_space(self, agent_index: int):
         return self.env.unwrapped.agents[agent_index].action_space
+
+
+# class MyRealObsWrapper(TransformObservation):
+#     """Special Wrapper needed for new RLlib API stack."""
+
+#     def __init__(self, env):  # noqa: D107
+#         self.observation_space = env.observation_space
+#         self.observation_space["observations"] = Box(0, 1, (np.prod(env.observation_space["observations"]._shape),), dtype=np.float32)
+#         super().__init__(env, self.__transform, observation_space=self.observation_space)
+
+#     def __transform(self, orig_obs):  # noqa: D107
+#         new_obs = orig_obs
+#         for b in new_obs.keys():
+#             if b not in ["static_features"]:
+#                 new_obs[b] = np.reshape(new_obs[b], -1)
+#         return new_obs
 
 
 def to_rllib_env(
