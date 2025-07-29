@@ -17,7 +17,7 @@ from typing import Callable
 
 from gymnasium.spaces import MultiDiscrete
 
-from ray.rllib.algorithms import AlgorithmConfig
+from ray.rllib.algorithms import AlgorithmConfig, PPOConfig
 
 from ray.rllib.core.columns import Columns
 from ray.rllib.core.rl_module import MultiRLModuleSpec, RLModuleSpec
@@ -28,7 +28,7 @@ from ray.rllib.core.rl_module.torch import TorchRLModule
 # from ray.rllib.models.torch.torch_action_dist import TorchMultiCategorical # Old API Stack
 from ray.rllib.models.torch.torch_distributions import TorchMultiCategorical
 from ray.rllib.utils.from_config import NotProvided
-from ray.tune.registry import get_trainable_cls  # , register_env
+# from ray.tune.registry import get_trainable_cls  # , register_env
 
 # from ray.rllib.connectors.env_to_module.flatten_observations import FlattenObservations
 # from multigrid.core.constants import Direction
@@ -228,25 +228,7 @@ class AgentModule(TorchRLModule, ValueFunctionAPI):
 
 
 ### Environment
-# def register_new_env(
-#     env: str,
-#     num_agents: int,
-#     env_config: dict,
-#     num_timesteps: int,
-# ):
-#     # TODO: add env string parser
-#     # Parse String
-#     # hyper - task - ... - dims
-#     from hypergrid.envs import EmptyEnv
 
-#     task = ""
-#     env = EmptyEnv
-#     dims = [8, 8]
-#     dim_string = "8x8"
-#     register_env(f"HyperGrid-{task}-{dim_string}", lambda _: env(dims=dims))
-
-
-# num_missions = 4
 # class CustomTorchModule(TorchRLModule):
 # # class CustomTorchModule(TorchRLModule, ValueFunctionAPI):
 #     def setup(self) -> None:
@@ -315,13 +297,22 @@ def get_algorithm_config(
     Return the RL algorithm configuration dictionary.
     """
     config = (
-        get_trainable_cls(algo)
-        .get_default_config()
+        PPOConfig()
+        # get_trainable_cls(algo)
+        # .get_default_config()
         .api_stack(
             enable_env_runner_and_connector_v2=True,
             enable_rl_module_and_learner=True,
         )
         .debugging(seed=random.randint(0, 1000000))
+        .framework("torch")
+        .environment(env=env, env_config={**env_config, "agents": num_agents})
+        .training(lr=lr, train_batch_size=batch_size)
+        .multi_agent(
+            policies={f"policy_{i}" for i in range(num_agents)},
+            policy_mapping_fn=get_policy_mapping_fn(None, num_agents),
+            policies_to_train=[f"policy_{i}" for i in range(num_agents)],
+        )
         .env_runners(
             num_env_runners=num_workers,
             num_envs_per_env_runner=1,
@@ -329,22 +320,10 @@ def get_algorithm_config(
             if torch.cuda.is_available()
             else 0,
         )
-        .environment(env=env, env_config={**env_config, "agents": num_agents})
-        .framework("torch")
-        .multi_agent(
-            policies={f"policy_{i}" for i in range(num_agents)},
-            policy_mapping_fn=get_policy_mapping_fn(None, num_agents),
-            policies_to_train=[f"policy_{i}" for i in range(num_agents)],
-        )
-        .training(lr=lr, train_batch_size=batch_size)
         .rl_module(
             rl_module_spec=MultiRLModuleSpec(
                 rl_module_specs={
-                    f"policy_{i}": RLModuleSpec(
-                        # TODO: Validate AgentModule
-                        module_class=AgentModule
-                    )
-                    for i in range(num_agents)
+                    f"policy_{i}": RLModuleSpec() for i in range(num_agents)
                 }
             )
         )
