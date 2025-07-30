@@ -4,7 +4,7 @@ import functools
 import numpy as np
 
 from numpy.typing import ArrayLike, NDArray as ndarray
-from typing import Any, Sequence, TYPE_CHECKING
+from typing import Any, Sequence, TYPE_CHECKING, override
 
 from .constants import Color, State, Type
 
@@ -186,18 +186,18 @@ class WorldObj(np.ndarray, metaclass=WorldObjMeta):
         self[WorldObj.COLOR] = Color(value).to_index()
 
     @property
-    def state(self) -> str:
+    def state(self) -> int:
         """
         Return the name of the object state.
         """
-        return State.from_index(self[WorldObj.STATE])
+        return self[WorldObj.STATE]
 
     @state.setter
-    def state(self, value: str):
+    def state(self, value: int):
         """
         Set the name of the object state.
         """
-        self[WorldObj.STATE] = State(value).to_index()
+        self[WorldObj.STATE] = value
 
     def can_overlap(self) -> bool:
         """
@@ -442,6 +442,22 @@ class Door(WorldObj):
             f"{self.__class__.__name__}(color={self.color},state={self.state})"
         )
 
+    @override
+    @property
+    def state(self) -> str:
+        """
+        Return the name of the object state.
+        """
+        return State.from_index(self[WorldObj.STATE])
+
+    @override
+    @state.setter
+    def state(self, value: str):
+        """
+        Set the name of the object state.
+        """
+        self[WorldObj.STATE] = State(value).to_index()
+
     @property
     def is_open(self) -> bool:
         """
@@ -636,6 +652,22 @@ class Box(WorldObj):
         # Replace the box by its contents
         env.grid.set(*pos, self.contains)
         return True
+
+    @override
+    @property
+    def state(self) -> str:
+        """
+        Return the name of the object state.
+        """
+        return State.from_index(self[WorldObj.STATE])
+
+    @override
+    @state.setter
+    def state(self, value: str):
+        """
+        Set the name of the object state.
+        """
+        self[WorldObj.STATE] = State(value).to_index()
 
     def render(self, img):
         """
