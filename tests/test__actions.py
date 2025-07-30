@@ -52,7 +52,7 @@ def test_env_action_handler(ActSpec):
     env = ENV_CLASS(agents=2, agent_action_spec=ActSpec)
     env.reset()
     sample_action = env.action_space.sample()
-    env.handle_actions(sample_action)
+    env._handle_actions(sample_action)
 
 
 @pytest.mark.parametrize(*ACT_SPEC)

@@ -4,16 +4,15 @@ from collections.abc import Sequence
 from typing import override, SupportsFloat
 import numpy as np
 
+from ..core.agent import Agent
 from ..core.space import NDSpace
 from ..core.world_object import Goal, Lava
 from ..hypergrid_env import HyperGridEnv, AgentID
-from ..core.agent import Agent
 
 
 class HotOrColdEnv(HyperGridEnv):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-
         self.goal_location = np.array([dn - 2 for dn in self.dims])
         # Warm reward is capped at the decay of the
         # default time-decay of completion reward
@@ -51,7 +50,10 @@ class HotOrColdEnv(HyperGridEnv):
         rewards: dict[AgentID, SupportsFloat],
         terminations: dict[AgentID, bool] = {},
     ):
-        """ """
+        """
+        Provide a small reward based on how close to the goal
+        each agent is, just as a treat.
+        """
         loc = agent.pos
         if isinstance(self.grid.get(loc), Lava):
             self._on_failure(agent, rewards, terminations)

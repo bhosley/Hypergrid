@@ -381,7 +381,7 @@ class HyperGridEnv(gym.Env, RandomMixin):
             Additional information for each agent
         """
         self.step_count += 1
-        rewards = self.handle_actions(actions)
+        rewards = self._handle_actions(actions)
         observations = self.gen_obs()
         terminations = dict(enumerate(self.agent_states.terminated))
         truncated = self.step_count >= self.max_steps
@@ -775,7 +775,7 @@ class HyperGridEnv(gym.Env, RandomMixin):
         return interactions
 
     @abstractmethod
-    def handle_actions(
+    def _handle_actions(
         self, actions: dict[AgentID, Sequence[int]]
     ) -> dict[AgentID, SupportsFloat]:
         """
