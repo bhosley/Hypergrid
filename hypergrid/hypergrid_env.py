@@ -694,7 +694,10 @@ class HyperGridEnv(gym.Env, RandomMixin):
 
     @abstractmethod
     def _occupation_effects(
-        self, agent: Agent, rewards: dict[AgentID, SupportsFloat]
+        self,
+        agent: Agent,
+        rewards: dict[AgentID, SupportsFloat],
+        terminations: dict[AgentID, bool] = {},
     ):
         """
         :meta public:
@@ -712,7 +715,9 @@ class HyperGridEnv(gym.Env, RandomMixin):
         """
         loc = agent.pos
         if isinstance(self.grid.get(loc), Lava):
-            self._on_failure(agent, rewards)
+            self._on_failure(agent, rewards, terminations)
+        if isinstance(self.grid.get(loc), Goal):
+            self._on_success(agent, rewards, terminations)
 
     @abstractmethod
     def _agent_interaction(

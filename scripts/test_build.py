@@ -84,6 +84,20 @@ def test_one_train_step(config):
     assert "perf" in result
 
 
+# from ray.rllib.utils.test_utils import
+# check_compute_single_action
+
+# check_supported_spaces
+
+# check_inference_w_connectors
+
+# check_learning_achieved
+# check_train_results_new_api_stack
+
+
+# parser = add_rllib_example_script_args()
+
+
 # def test_checkpoint_and_restore(config, tmp_path):
 #     algo1 = config.build_algo()
 #     res1 = algo1.train()

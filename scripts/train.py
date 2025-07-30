@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import hypergrid.rllib as HRC
 import os
 import random
 import ray
@@ -32,7 +31,9 @@ from ray.rllib.utils.from_config import NotProvided
 
 # from ray.rllib.connectors.env_to_module.flatten_observations import FlattenObservations
 # from multigrid.core.constants import Direction
-HRC
+import hypergrid.rllib as HRC
+
+assert HRC is not None
 
 # ### Helper Methods
 

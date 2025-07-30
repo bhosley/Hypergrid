@@ -81,3 +81,31 @@ def test_env_step_edge(ActSpec):
         v[0] = max_dim + 4
     env.step(mod_act)
     env.close()
+
+
+@pytest.mark.parametrize(*ACT_SPEC)
+def test_env_step_works(ActSpec):
+    env = ENV_CLASS(agents=2, agent_action_spec=ActSpec)
+    env.reset()
+    starting_position = np.array(env.agent_states.pos)
+    # get agent action dict
+    act = env.action_space.sample()
+    # ensure agent move speed >0
+    for agent, action in act.items():
+        action[0] = env.action_space[agent][0].n - 1
+    env.step(act)
+    second_position = np.array(env.agent_states.pos)
+
+    # check each agent's behavior:
+    for agent in range(env.num_agents):
+        moved = False
+        could_not_move = False
+        if not np.all(starting_position[agent] == second_position[agent]):
+            moved = True
+        else:
+            ahead = env.grid.get(
+                env.agent_states.pos[agent] + env.agent_states.dir[agent]
+            )
+            could_not_move = ahead is not None and not ahead.can_overlap()
+
+        assert moved or could_not_move

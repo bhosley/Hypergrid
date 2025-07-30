@@ -1,7 +1,13 @@
+from __future__ import annotations
+
+import argparse
+import os
+import json
 import random
 from pathlib import Path
 from typing import Callable
 
+import ray
 import torch
 
 from ray.rllib.core.rl_module import MultiRLModuleSpec, RLModuleSpec
@@ -11,6 +17,16 @@ from ray.rllib.connectors.env_to_module.flatten_observations import (
 from ray.rllib.utils.from_config import NotProvided
 from ray.rllib.algorithms import AlgorithmConfig
 from ray.tune.registry import get_trainable_cls
+
+from ray.rllib.utils.test_utils import (
+    check_train_results,
+    check_learning_achieved,
+    check_train_results_new_api_stack,
+)
+
+import hypergrid.rllib as HRC
+
+assert HRC is not None
 
 
 def get_policy_mapping_fn(
@@ -39,6 +55,17 @@ def get_policy_mapping_fn(
 
     except Exception:
         return lambda agent_id, *args, **kwargs: f"policy_{agent_id}"
+
+
+def find_checkpoint_dir(search_dir: Path | str | None) -> Path | None:
+    try:
+        checkpoints = (
+            Path(search_dir).expanduser().glob("**/rllib_checkpoint.json")
+        )
+        if checkpoints:
+            return sorted(checkpoints, key=os.path.getmtime)[-1].parent
+    except Exception:
+        return None
 
 
 def get_algorithm_config(
@@ -95,3 +122,145 @@ def get_algorithm_config(
     )
 
     return config
+
+
+def train(
+    config: AlgorithmConfig,
+    stop_conditions: dict,
+    save_dir: str,
+    load_dir: str = None,
+):
+    """
+    Train an RLlib algorithm.
+    """
+    checkpoint = find_checkpoint_dir(load_dir)
+    if checkpoint:
+        tuner = ray.tune.Tuner.restore(checkpoint)
+    else:
+        tuner = ray.tune.Tuner(
+            config.algo_class,
+            param_space=config,
+            run_config=ray.tune.RunConfig(
+                storage_path=save_dir,
+                stop=stop_conditions,
+                verbose=1,
+                checkpoint_config=ray.train.CheckpointConfig(
+                    checkpoint_frequency=20,
+                    checkpoint_at_end=True,
+                ),
+            ),
+        )
+    results = tuner.fit()
+    return results
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument(
+        "--build-test",
+        action="store_true",
+        help="Skip training, just test-build the config.",
+    )
+
+    parser.add_argument(
+        "--algo",
+        type=str,
+        default="PPO",
+        help="The name of the RLlib-registered algorithm to use.",
+    )
+    parser.add_argument(
+        "--env",
+        type=str,
+        default="HyperGrid-Empty-v0",
+        help="HyperGrid environment to use.",
+    )
+    parser.add_argument(
+        "--env-config",
+        type=json.loads,
+        default={},
+        help="Environment config dict, given as a JSON string (e.g. '{\"size\": 8}')",
+    )
+    parser.add_argument(
+        "--num-agents",
+        type=int,
+        default=2,
+        help="Number of agents in environment.",
+    )
+    parser.add_argument("--lr", type=float, help="Learning rate for training.")
+    # parser.add_argument(
+    #     '--lstm', action='store_true',
+    #     help="Use LSTM model.")
+    # parser.add_argument(
+    #     '--centralized-critic', action='store_true',
+    #     help="Use centralized critic for training.")
+    parser.add_argument(
+        "--num-workers", type=int, default=8, help="Number of rollout workers."
+    )
+    parser.add_argument(
+        "--num-gpus", type=int, default=0, help="Number of GPUs to train on."
+    )
+    parser.add_argument(
+        "--num-timesteps",
+        type=int,
+        default=int(1e7),
+        help="Total number of timesteps to train.",
+    )
+    parser.add_argument(
+        "--load-dir",
+        type=str,
+        help="Checkpoint directory for loading pre-trained policies.",
+    )
+    parser.add_argument(
+        "--save-dir",
+        type=str,
+        default="~/ray_results/",
+        help="Directory for saving checkpoints, results, and trained policies.",
+    )
+
+    args = parser.parse_args()
+
+    # TODO: Replace this with a proper reader
+    args.env_config = {
+        "max_steps": args.num_timesteps,
+    }
+
+    config = get_algorithm_config(**vars(args))
+    if args.build_test:
+        config.build_algo()
+        exit()
+
+    print()
+    print(f"Running with following CLI options: {args}")
+    print(
+        "\n",
+        "-" * 64,
+        "\n",
+        "Training with following configuration:",
+        "\n",
+        "-" * 64,
+    )
+    print()
+
+    stop_conditions = {
+        "learners/__all_modules__/num_env_steps_trained_lifetime": args.num_timesteps
+    }
+    results = train(config, stop_conditions, args.save_dir, args.load_dir)
+
+    try:
+        print("Errored trials:", results.num_errors)
+    except Exception:
+        print("No 'results.num_errors' found")
+    try:
+        print("Cleanly terminated trials:", results.num_terminated)
+    except Exception:
+        print("No 'results.num_terminated' found")
+    # Any exceptions from errored trials:
+    try:
+        print("Error details:", results.errors)
+    except Exception:
+        print("No 'results.errors' found")
+
+    check_train_results(results)
+    check_learning_achieved(results, 0.0)
+    check_train_results_new_api_stack(results)

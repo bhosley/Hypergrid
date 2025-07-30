@@ -193,8 +193,6 @@ def test_env_reset():
     env.close()
 
 
-# TODO: Verify prevent agent spawning inside wall
-
 # ------------------------------- Env Step Tests -------------------------------
 
 
@@ -222,3 +220,7 @@ def test_env_step():
         assert len(obs["direction"]) == env.n_dims
         # assert obs["mission"] is not None
     env.close()
+
+
+# TODO: Verify prevent agent spawning inside wall
+# TODO: Verify goal intent
