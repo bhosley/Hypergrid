@@ -38,6 +38,7 @@ scikit-learn = "^1.7.1"
 dm-tree = "^0.1.9"
 pillow = "^11.3.0"
 lz4 = "^4.4.4"
+python-dotenv = "^1.1.1"
 
 [tool.ruff]
 line-length = 80

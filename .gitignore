@@ -6,3 +6,4 @@
 *.nbi
 # Workspace
 .vscode/*
+.env
