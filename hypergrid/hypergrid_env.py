@@ -461,7 +461,10 @@ class HyperGridEnv(gym.Env, RandomMixin):
             # This is to handle with rare cases where rejection sampling
             # gets stuck in an infinite loop
             if num_tries > max_tries:
-                raise RecursionError("rejection sampling failed in place_obj")
+                raise RecursionError(
+                    "Rejection sampling failed in place_obj, likely "
+                    + "no valid placement candidate in provided range."
+                )
             num_tries += 1
             pos = [
                 np.random.randint(top[i], min(top[i] + size[i], d))

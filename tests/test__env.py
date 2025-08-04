@@ -7,7 +7,7 @@ import numpy as np
 from numbers import Number
 
 from hypergrid.core.agent import Agent
-from hypergrid.core.world_object import WorldObj
+from hypergrid.core.world_object import WorldObj, Wall
 from hypergrid.hypergrid_env import HyperGrid
 
 """
@@ -27,7 +27,7 @@ def test_env_has_core_methods():
     """Environment exposes the default petting zoo methods."""
     env = ENV_CLASS()
     for method in ("reset", "step", "render", "close"):
-        assert hasattr(env, method), f"Missing {method}() method"
+        assert hasattr(env, method), f"Missing {method}() mNethod"
     env.close()
 
 
@@ -222,5 +222,17 @@ def test_env_step():
     env.close()
 
 
-# TODO: Verify prevent agent spawning inside wall
+def test_env_placing_agent_in_wall_raises_error():
+    # Env that is entirety wall.
+    dims = [2, 2]
+    env = ENV_CLASS(dims=dims)
+    with pytest.raises((RecursionError)):
+        env.reset()
+    env = ENV_CLASS()
+    env.grid.make_boundary()
+    assert isinstance(env.grid.get((0, 0)), Wall)
+    with pytest.raises((RecursionError)):
+        env.place_agent(env.agents[0], (0, 0), (1, 1))
+
+
 # TODO: Verify goal intent

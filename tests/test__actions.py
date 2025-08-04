@@ -82,6 +82,10 @@ def test_env_step_edge(ActSpec):
     env.step(mod_act)
     env.close()
 
+    # TODO: Agents seem to sometimes, somehow breach the barrier
+    #   only seen in non-ortho ActionSpace so far.
+    #   inconsistent, not reproducible yet.
+
 
 @pytest.mark.parametrize(*ACT_SPEC)
 def test_env_step_works(ActSpec):
