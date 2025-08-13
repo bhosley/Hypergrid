@@ -27,7 +27,7 @@ def test_env_has_core_methods():
     """Environment exposes the default petting zoo methods."""
     env = ENV_CLASS()
     for method in ("reset", "step", "render", "close"):
-        assert hasattr(env, method), f"Missing {method}() mNethod"
+        assert hasattr(env, method), f"Missing {method}() method"
     env.close()
 
 

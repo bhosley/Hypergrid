@@ -4,38 +4,32 @@ import argparse
 import json
 import os
 import random
-import ray
+from dotenv import load_dotenv
 
-# import ray.train
-# import ray.tune
-import torch
-
-import torch.nn as nn
 from pathlib import Path
 from typing import Callable
 
-from gymnasium.spaces import MultiDiscrete
+import torch
+import torch.nn as nn
 
+import ray.tune
+import ray.train
+from ray.air.integrations.wandb import WandbLoggerCallback
 from ray.rllib.algorithms import AlgorithmConfig, PPOConfig
-
 from ray.rllib.core.columns import Columns
 from ray.rllib.core.rl_module import MultiRLModuleSpec, RLModuleSpec
-
 from ray.rllib.core.rl_module.apis import ValueFunctionAPI
 from ray.rllib.core.rl_module.torch import TorchRLModule
-
-# from ray.rllib.models.torch.torch_action_dist import TorchMultiCategorical # Old API Stack
-from ray.rllib.models.torch.torch_distributions import TorchMultiCategorical
+from ray.rllib.models.torch.torch_distributions import (
+    TorchMultiCategorical,
+    TorchCategorical,
+)
 from ray.rllib.utils.from_config import NotProvided
-# from ray.tune.registry import get_trainable_cls  # , register_env
 
-# from ray.rllib.connectors.env_to_module.flatten_observations import FlattenObservations
-# from multigrid.core.constants import Direction
+
 import hypergrid.rllib as HRC
 
 assert HRC is not None
-
-# ### Helper Methods
 
 
 def get_policy_mapping_fn(
@@ -59,7 +53,6 @@ def get_policy_mapping_fn(
             print(
                 "Agent ID:", agent_id, "Policy ID:", policy_mapping_fn(agent_id)
             )
-
         return policy_mapping_fn
 
     except Exception:
@@ -77,208 +70,96 @@ def find_checkpoint_dir(search_dir: Path | str | None) -> Path | None:
         return None
 
 
-def preprocess_batch(batch: dict) -> torch.Tensor:
-    image = batch["obs"]["image"]
-    direction = batch["obs"]["direction"]
-    # direction = 2 * torch.pi * (direction / len(Direction))
-    # direction = torch.stack([torch.cos(direction), torch.sin(direction)], dim=-1)
-    # direction = direction[..., None, None, :].expand(*image.shape[:-1], 2)
-    batch_size, ndims = direction.shape
-    # 1) reshape to [b, 1, 1, …, 1, d]
-    direction = direction.view(batch_size, *([1] * ndims), ndims)
-    # 2) broadcast to [b, v0, v1, …, vD, d]
-    direction = direction.expand(*image.shape[:-1], ndims)
-    x = torch.cat([image, direction], dim=-1).float()
-    return x
+def get_TorchMultiDiscrete(action_space):
+    from ray.rllib.utils.annotations import override
+
+    class TorchMultDiscrete(TorchMultiCategorical):
+        input_lengths = list(action_space.nvec)
+
+        @override(TorchMultiCategorical)
+        def __init__(self, categoricals: list[TorchCategorical], **kwargs):
+            super().__init__(categoricals)
+
+        @classmethod
+        @override(TorchMultiCategorical)
+        def from_logits(cls, logits: "torch.Tensor", **kwargs):
+            # If RLlib already supplied input_lens, don't override it.
+            kwargs.setdefault("input_lens", cls.input_lengths)
+            # Properly delegate to the parent implementation (no manual 'cls' arg).
+            return super(TorchMultDiscrete, cls).from_logits(logits, **kwargs)
+
+    return TorchMultDiscrete
 
 
-# ### Models
+class CustomTorchModule(TorchRLModule, ValueFunctionAPI):
+    encoder_dims = [128, 16]
 
+    def setup(self) -> None:
+        # Manually build sub-nets for each part of the Dict:
+        input_img = self.observation_space["image"].shape[-1]
+        input_dir = self.observation_space["direction"].shape[0]
 
-class MultiGridEncoder(nn.Module):
-    def __init__(self, in_channels: int = 23):
-        super().__init__()
-        self.model = nn.Sequential(
-            nn.Conv2d(in_channels, 16, (3, 3)),
-            nn.ReLU(),
-            nn.Conv2d(16, 32, (3, 3)),
-            nn.ReLU(),
-            nn.Conv2d(32, 64, (3, 3)),
+        self.action_dist_cls = get_TorchMultiDiscrete(self.action_space)
+        self.img_encoder = nn.Sequential(
+            nn.Conv2d(input_img, 32, 3),
             nn.ReLU(),
             nn.Flatten(),
+            nn.Linear(32 * 5 * 5, self.encoder_dims[0]),
         )
-
-    def forward(self, x):
-        x = x[None] if x.ndim == 3 else x  # add batch dimension
-        # x = x.permute(0, 3, 1, 2) # channels-first (N H W C -> N C H W)
-        x = x.permute(
-            0, -1, *(range(1, x.ndim - 1))
-        )  # channels-first (N H W C -> N C H W)
-        return self.model(x)
-
-
-class MultiDiscreteHead(nn.Module):
-    def __init__(self, feat_dim, nvec):
-        super().__init__()
-        # keep your branches in a ModuleList so parameters register
-        self.branches = nn.ModuleList(
-            [
-                nn.Sequential(
-                    nn.Linear(feat_dim, 64),
-                    nn.ReLU(),
-                    nn.Linear(64, n),
-                )
-                for n in nvec
-            ]
-        )
-
-    def forward(self, features):
-        # return a *list* of logits tensors
-        return [branch(features) for branch in self.branches]
-
-
-class AgentModule(TorchRLModule, ValueFunctionAPI):
-    def setup(self):
-        self.base = nn.Identity()
-
-        # self.actor = nn.Sequential(
-        #     MultiGridEncoder(in_channels=22),
-        #     nn.Linear(64, 64), nn.ReLU(),
-        #     nn.Linear(64, 7),
-        # )
-        # self.critic = nn.Sequential(
-        #     MultiGridEncoder(in_channels=22),
-        #     nn.Linear(64, 64), nn.ReLU(),
-        #     nn.Linear(64, 1),
-        # )
-
-        # 1) shared encoder
-        in_ch = (
-            self.observation_space["image"].shape[-1]
-            + self.observation_space["direction"].shape[-1]
-        )
-        self.encoder = MultiGridEncoder(in_channels=in_ch)
-        feat_dim = self.encoder.out_dim
-
-        # 2) critic head (unchanged)
-        self.critic = nn.Sequential(
-            nn.Linear(feat_dim, 64),
-            nn.Linear(64, 64),
+        self.ori_encoder = nn.Sequential(
+            nn.Linear(input_dir, self.encoder_dims[1]),
             nn.ReLU(),
-            nn.Linear(64, 1),
         )
+        # Define a fusion trunk and heads:
+        self.trunk = nn.Sequential(
+            nn.Linear(sum(self.encoder_dims), 64),
+            nn.ReLU(),
+        )
+        # Unpack the action space shape as an int
+        # self.pi_head = nn.Linear(64, *self.action_space.shape)
+        self.pi_head = nn.Linear(64, int(self.action_space.nvec.sum()))
+        self.value_head = nn.Linear(64, 1)
 
-        # 3) actor head(s)
-        act_space = self.action_space
-        if isinstance(act_space, MultiDiscrete):
-            # one small MLP per branch
-            # actor_head = nn.ModuleList([
-            #     nn.Sequential(
-            #         nn.Linear(feat_dim, 64),
-            #         nn.Linear(64, 64),
-            #         nn.ReLU(),
-            #         nn.Linear(64, n),
-            #     )
-            #     for n in act_space.nvec
-            # ])
-            # raise InterruptedError(f"AgentModule.setup (evoked branched agent) identified action space as {type(act_space)}")
-            actor_head = MultiDiscreteHead(feat_dim, act_space.nvec)
-
-            class TMC(TorchMultiCategorical):
-                def from_logits(
-                    cls,
-                    logits: "torch.Tensor",
-                    input_lens: list[int] = act_space.nvec,
-                    temperatures: list[float] = None,
-                    **kwargs,
-                ):
-                    super().from_logits(
-                        cls, logits, input_lens, temperatures, **kwargs
-                    )
-
-            self.action_dist_cls = TMC
-        else:
-            actor_head = nn.Sequential(
-                nn.Linear(feat_dim, 64),
-                nn.Linear(64, 64),
-                nn.ReLU(),
-                nn.Linear(64, act_space.n),
-            )
-        self.actor = actor_head
-
-    def _forward(self, batch, **kwargs):
-        x = self.base(preprocess_batch(batch))
-        return {Columns.ACTION_DIST_INPUTS: self.actor(x)}
-
-    def _forward_train(self, batch, **kwargs):
-        x = self.base(preprocess_batch(batch))
+    def _forward(self, batch: dict, **kwargs):
+        embeddings = self.heads_and_body(batch)
+        logits = self.pi_head(embeddings)
+        assert logits.shape[-1] == int(
+            self.action_space.nvec.sum()
+        ), f"logits dim {logits.shape[-1]} != sum(nvec) {
+            int(self.action_space.nvec.sum())
+        }"
         return {
-            Columns.ACTION_DIST_INPUTS: self.actor(x),
-            Columns.EMBEDDINGS: self.critic(batch.get("value_inputs", x)),
+            Columns.ACTION_DIST_INPUTS: logits,
+            Columns.EMBEDDINGS: embeddings,
         }
 
+    def value_function(self, **kwargs):
+        # RLlib's ValueFunctionAPI expects this to return a 1D tensor of V(s)
+        # matching the last forward() call.
+        return self._value_out
+
     def compute_values(self, batch, embeddings=None):
+        """
+        Compute V(s) for a batch.
+        If `embeddings` (i.e., trunk output) is provided, reuse it; otherwise,
+        recompute the embedding from the obs dict using this module's encoders.
+        Returns a 1D tensor of shape [B].
+        """
         if embeddings is None:
-            x = self.base(preprocess_batch(batch))
-            embeddings = self.critic(batch.get("value_inputs", x))
+            embeddings = self.heads_and_body(batch)
+        values = self.value_head(embeddings).squeeze(1)
+        return values
 
-        return embeddings.squeeze(-1)
-
-    def get_initial_state(self):
-        return {}
-
-
-### Environment
-
-# class CustomTorchModule(TorchRLModule):
-# # class CustomTorchModule(TorchRLModule, ValueFunctionAPI):
-#     def setup(self) -> None:
-#         # Manually build sub-nets for each part of the Dict:
-#         self.img_encoder = nn.Sequential(
-#             nn.Conv2d(3, 32, 3, stride=1),
-#             nn.ReLU(),
-#             nn.Flatten(),
-#             nn.Linear(32 * 5 * 5, 128),
-#         )
-#         self.ori_encoder = nn.Sequential(
-#             nn.Linear(self.observation_space["direction"].nvec.sum(), 16),
-#             nn.ReLU(),
-#         )
-#         self.mis_encoder = nn.Embedding(num_missions, 8)
-
-#         # Define a fusion trunk and heads:
-#         self.trunk = nn.Sequential(
-#             nn.Linear(128 + 16 + 8, 64),
-#             nn.ReLU(),
-#         )
-#         self.pi_head = nn.Linear(64, self.action_space.n)
-#         self.value_head = nn.Linear(64, 1)
-
-# def _forward_train(self, batch:dict, **kwargs):
-#     img = batch["obs"]["image"].float() / 255.0
-#     ori = batch["obs"]["direction"].float()
-#     miss = batch["obs"]["mission"].long()
-#     z_img = self.img_encoder(img)
-#     z_ori = self.ori_encoder(ori)
-#     z_mis = self.mis_encoder(miss)
-#     z = torch.cat([z_img, z_ori, z_mis], dim=1)
-#     logits = self.pi_head(self.trunk(z))
-#     self._value_out = self.value_head(self.trunk(z)).squeeze(1)
-#     return logits, [], {}
-
-# For VF API
-# def compute_values(self, batch, embeddings=None):
-#     if embeddings is None:
-#         x = self.base(preprocess_batch(batch))
-#         embeddings = self.critic(batch.get("value_inputs", x))
-
-#     return embeddings.squeeze(-1)
-
-# def get_initial_state(self):
-#     return {}
-
-
-### Training
+    def heads_and_body(self, batch):
+        img = batch["obs"]["image"].float()
+        ori = batch["obs"]["direction"].float()
+        # Permute channels from [-1] to [1] - (N D1 D2 C -> N C D1 D2)
+        img = img.permute(0, -1, *(range(1, img.ndim - 1)))
+        z_img = self.img_encoder(img)
+        z_ori = self.ori_encoder(ori)
+        z = torch.cat([z_img, z_ori], dim=1)
+        embedding = self.trunk(z)
+        return embedding
 
 
 def get_algorithm_config(
@@ -324,12 +205,12 @@ def get_algorithm_config(
         .rl_module(
             rl_module_spec=MultiRLModuleSpec(
                 rl_module_specs={
-                    f"policy_{i}": RLModuleSpec() for i in range(num_agents)
+                    f"policy_{i}": RLModuleSpec(module_class=CustomTorchModule)
+                    for i in range(num_agents)
                 }
             )
         )
     )
-
     return config
 
 
@@ -338,6 +219,7 @@ def train(
     stop_conditions: dict,
     save_dir: str,
     load_dir: str = None,
+    callbacks: list = [],
 ):
     """
     Train an RLlib algorithm.
@@ -357,6 +239,7 @@ def train(
                     checkpoint_frequency=20,
                     checkpoint_at_end=True,
                 ),
+                callbacks=callbacks,
             ),
         )
     results = tuner.fit()
@@ -365,13 +248,6 @@ def train(
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-
-    parser.add_argument(
-        "--build-test",
-        action="store_true",
-        help="Skip training, just test-build the config.",
-    )
-
     parser.add_argument(
         "--algo",
         type=str,
@@ -397,12 +273,12 @@ if __name__ == "__main__":
         help="Number of agents in environment.",
     )
     parser.add_argument("--lr", type=float, help="Learning rate for training.")
-    #     # parser.add_argument(
-    #     #     '--lstm', action='store_true',
-    #     #     help="Use LSTM model.")
-    #     # parser.add_argument(
-    #     #     '--centralized-critic', action='store_true',
-    #     #     help="Use centralized critic for training.")
+    parser.add_argument("--lstm", action="store_true", help="Use LSTM model.")
+    parser.add_argument(
+        "--centralized-critic",
+        action="store_true",
+        help="Use centralized critic for training.",
+    )
     parser.add_argument(
         "--num-workers", type=int, default=8, help="Number of rollout workers."
     )
@@ -426,31 +302,75 @@ if __name__ == "__main__":
         default="~/ray_results/",
         help="Directory for saving checkpoints, results, and trained policies.",
     )
+    parser.add_argument(
+        "--build-test",
+        action="store_true",
+        help="Skip training, just test-build the config.",
+    )
+    parser.add_argument(
+        "-W",
+        "--wandb",
+        action="store_true",
+        help="Log results to wandb.",
+    )
+    parser.add_argument(
+        "--wandb-key",
+        type=str,
+        help="API key for wandb.",
+    )
+    parser.add_argument(
+        "-S",
+        "--silent",
+        action="store_true",
+        help="Try to silence what we can.",
+    )
 
     args = parser.parse_args()
     config = get_algorithm_config(**vars(args))
+
     if args.build_test:
         config.build_algo()
         exit()
+
+    callbacks = []
+
+    if args.wandb and not args.wandb_key:
+        load_dotenv()
+        args.wandb_key = os.getenv("WANDB_KEY")
+    if args.wandb_key:
+        wandb_tags = ["PPO", "multiagent"]
+        args.algo
+
+        callbacks.append(
+            WandbLoggerCallback(
+                project="hypergrid",  # your W&B project
+                group="rllib-PPO",  # optional grouping
+                job_type="train",  # optional
+                tags=wandb_tags,  # optional
+                log_config=True,  # log the full RLlib/Tune config
+                save_code=True,  # snapshot code
+                api_key=args.wandb_key,  # or rely on wandb login/env var
+            )
+        )
 
     # if args.env not in HRL.CONFIGURATIONS:
     #     # register env
     #     # TODO: add env registerer
     #     pass
 
-    print()
-    print(f"Running with following CLI options: {args}")
-    print(
-        "\n",
-        "-" * 64,
-        "\n",
-        "Training with following configuration:",
-        "\n",
-        "-" * 64,
-    )
-    print()
+    if not args.silent:
+        print(
+            f"\nRunning with following CLI options: {args}\n",
+            f"\n{'-' * 64}\n",
+            "Training with following configuration:",
+            f"\n{'-' * 64}\n",
+        )
 
     stop_conditions = {
         "learners/__all_modules__/num_env_steps_trained_lifetime": args.num_timesteps
     }
-    train(config, stop_conditions, args.save_dir, args.load_dir)
+    train(config, stop_conditions, args.save_dir, args.load_dir, callbacks)
+
+"""
+python scripts/train2.py --build-test
+"""
