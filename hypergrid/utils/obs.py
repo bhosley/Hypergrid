@@ -281,7 +281,7 @@ def gen_obs_grids(
         # Insert agent grid encodings
         for agent in range(num_agents):
             if not agent_terminated[agent]:
-                pos = list(agent_pos[agent])
+                pos = agent_pos[agent]
                 grid_encoding[*pos] = agent_grid_encoding[agent]
     else:
         grid_encoding = grid_state[..., GRID_ENCODING_IDX]

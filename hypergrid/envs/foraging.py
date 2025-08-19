@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import numpy as np
 from typing import override, SupportsFloat
 from collections.abc import Sequence
 
@@ -10,18 +11,24 @@ from ..hypergrid_env import HyperGridEnv, AgentID
 
 
 class ForagingEnv(HyperGridEnv):
-    def __init__(self, num_food: int = 1, **kwargs):
+    def __init__(self, num_food: int = 1, level_based: bool = False, **kwargs):
         super().__init__(**kwargs)
+        self.cooperative_task = True
         self.num_food = num_food
-        self.goal_loc = []
+        self.food_loc = np.empty((num_food, self.n_dims), dtype=np.int32)
 
+        self.level_based = level_based
+        self.agent_levels = np.zeros(self.num_agents)
+        self.food_levels = np.zeros(self.num_food)
+
+    @override
     def _gen_grid(self, dims: Sequence[int]):
         self.grid = NDSpace(dims)
         self.grid.make_boundary()
 
         # Place a goals randomly
-        for _ in range(self.num_food):
-            self.place_obj(Goal())
+        for i in range(self.num_food):
+            self.food_loc[i] = self.place_obj(Goal())
 
         for agent in self.agents:
             if (
@@ -33,31 +40,98 @@ class ForagingEnv(HyperGridEnv):
             else:
                 self.place_agent(agent)
 
-        self.agent_states.carrying = 0
+        if self.level_based:
+            self.agent_levels = np.zeros(self.num_agents)
+            self.food_levels = np.zeros(self.num_food)
 
     @override
     def _on_success(
+        self,
+        food_ind: int,
+        group: list[AgentID],
+        rewards: dict[AgentID, SupportsFloat],
+        terminations: dict[AgentID, bool] = {},
+    ):
+        # Assign rewards
+        if self.joint_reward:
+            # reward all agents
+            for i in range(self.num_agents):
+                rewards[i] = self._reward()
+        else:
+            # reward this agent only
+            for i in group:
+                rewards[i] = self._reward()
+
+        # If level based, increment levels
+        if self.level_based:
+            self.food_levels[food_ind] += 1
+            self.agent_levels[[group]] += 1
+
+        # Redeploy goal (preventing respawn at same location)
+        new_loc = self.place_obj(Goal())
+        if not new_loc:
+            raise RuntimeError(f"New location error: {new_loc=}")
+        self.grid.set(self.food_loc[food_ind], WorldObj.empty())
+        self.food_loc[food_ind] = new_loc
+
+    @override
+    def _cooperative_interactions(self, actions, rewards):
+        """
+        Steps:
+        1. Filter for agents that are interacting
+            1.1 Assign cost for interaction
+        2. Group agents
+            2.1 Groups without valid target don't do anything
+            2.2 It is (probably) faster to group based on valid target
+        3. For groups
+            3.1 Verify that group meets level requirement
+            3.2 Evoke `self._on_success`
+        """
+        # Collect acting agents
+        action_targets = {}
+        for i, action in actions.items():
+            if action["interact"]:
+                agent = self.agents[i]
+                # Assign cost
+                rewards[i] -= agent.cost_interaction
+                action_targets[i] = agent.pos + agent.dir
+
+        # For each goal, check for group
+        for f in range(self.num_food):
+            food_group = [
+                i
+                for i, target in action_targets.items()
+                if np.array_equal(target, self.food_loc[f])
+            ]
+
+            # For goals with groups, if necessary, check group level
+            if food_group and (
+                not self.level_based
+                or self.food_levels[f] <= self.agent_levels[[food_group]].sum()
+            ):
+                self._on_success(food_ind=f, group=food_group, rewards=rewards)
+
+    @override
+    def _agent_interaction(
+        self, agent: Agent, rewards: dict[AgentID, SupportsFloat]
+    ):
+        """
+        Overriding the individual agent interactions prevents
+        the first agent (in the random resolution order) from
+        taking the reward, preventing cooperation of agents
+        on a task that isn't higher than every contributor.
+        """
+        pass
+
+    @override
+    def _occupation_effects(
         self,
         agent: Agent,
         rewards: dict[AgentID, SupportsFloat],
         terminations: dict[AgentID, bool] = {},
     ):
-        if self.joint_reward:
-            for i in range(self.num_agents):
-                rewards[i] = self._reward()  # reward all agents
-        else:
-            rewards[agent.index] = self._reward()  # reward this agent only
-
-        # Get goal current level
-        lvl = self.grid.get(self.goal_loc)
-        # remove current goal
-        self.grid.set(self.goal_loc, WorldObj.empty())
-        # respawn to new location
-        self.goal_loc = self.place_obj(Goal())
-        # increment the goal's level
-        self.grid.get(self.goal_loc).state = lvl + 1
-
-        # Level the agent
-        self.agent_states.carrying[0] += 1
-
-    # TODO: Level requirement checker
+        """
+        Overriding the occupation check is necessary to prevent solo
+        occupation from triggering on success effects.
+        """
+        pass

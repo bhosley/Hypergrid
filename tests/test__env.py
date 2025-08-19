@@ -8,7 +8,8 @@ from numbers import Number
 
 from hypergrid.core.agent import Agent
 from hypergrid.core.world_object import WorldObj, Wall
-from hypergrid.hypergrid_env import HyperGrid
+from hypergrid.hypergrid_env import HyperGrid as ENV_CLASS
+
 
 """
 This file tests the basic necessary functions of the env,
@@ -18,7 +19,6 @@ Action Handling is tested in a separate pytest file which will test
 a custom action schema in conjunction with the custom environment.
 """
 
-ENV_CLASS = HyperGrid
 
 # ---------------------------- Initialization Tests ----------------------------
 
@@ -202,7 +202,7 @@ def test_env_step():
     with pytest.raises((TypeError)):
         # Ensure error if no action is supplied
         env.step()
-    random_acts = {i.index: i.action_space.sample() for i in env.agents}
+    random_acts = env.action_space.sample()
     obss, rews, terms, truncs, infos = env.step(random_acts)
     for agent in env.agents:
         i = agent.index

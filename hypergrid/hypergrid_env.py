@@ -3,7 +3,6 @@ from __future__ import annotations
 import gymnasium as gym
 import numpy as np
 import pygame
-from abc import abstractmethod
 
 from collections.abc import Iterable, Sequence
 from gymnasium import spaces
@@ -540,7 +539,6 @@ class HyperGridEnv(gym.Env, RandomMixin):
 
     # -----  Common Methods for extended environments ----- #
 
-    @abstractmethod
     def _gen_grid(self, dims: Sequence[int]):
         """
         :meta public:
@@ -578,7 +576,6 @@ class HyperGridEnv(gym.Env, RandomMixin):
             else:
                 self.place_agent(agent)
 
-    @abstractmethod
     def _on_success(
         self,
         agent: Agent,
@@ -615,7 +612,6 @@ class HyperGridEnv(gym.Env, RandomMixin):
             rewards[agent.index] = self._reward()  # reward this agent only
         return terminations
 
-    @abstractmethod
     def _on_failure(
         self,
         agent: Agent,
@@ -645,7 +641,6 @@ class HyperGridEnv(gym.Env, RandomMixin):
             terminations[agent.index] = True
         return terminations
 
-    @abstractmethod
     def _update_orientation(self, agent: Agent, orientation: Sequence[int]):
         """
         :meta public:
@@ -663,7 +658,6 @@ class HyperGridEnv(gym.Env, RandomMixin):
         """
         agent.state.dir = orientation
 
-    @abstractmethod
     def _move_agent(self, agent: Agent, rewards: dict[AgentID, SupportsFloat]):
         """
         :meta public:
@@ -695,7 +689,6 @@ class HyperGridEnv(gym.Env, RandomMixin):
         agent.state.pos = dest_coords
         return
 
-    @abstractmethod
     def _occupation_effects(
         self,
         agent: Agent,
@@ -722,7 +715,6 @@ class HyperGridEnv(gym.Env, RandomMixin):
         if isinstance(self.grid.get(loc), Goal):
             self._on_success(agent, rewards, terminations)
 
-    @abstractmethod
     def _agent_interaction(
         self, agent: Agent, rewards: dict[AgentID, SupportsFloat]
     ):
@@ -749,7 +741,6 @@ class HyperGridEnv(gym.Env, RandomMixin):
         if type(fwd_obj) is Type.goal:
             self.on_success(agent, rewards)
 
-    @abstractmethod
     def _cooperative_interactions(
         self,
         actions: dict[AgentID, Sequence[int]],
@@ -771,13 +762,13 @@ class HyperGridEnv(gym.Env, RandomMixin):
         actions : dict[AgentID, Sequence[int]]
         rewards : dict[AgentID, SupportsFloat]
         """
-        # filter for just interact slice
-        interactions = {
-            agent: action["interact"] for agent, action in actions.items()
-        }
-        return interactions
+        actors = {}
+        for i, action in actions.items():
+            if action["interact"]:
+                agent = self.agents[i]
+                actors[i] = agent
+        return actors
 
-    @abstractmethod
     def _handle_actions(
         self, actions: dict[AgentID, Sequence[int]]
     ) -> dict[AgentID, SupportsFloat]:
@@ -816,6 +807,11 @@ class HyperGridEnv(gym.Env, RandomMixin):
         """
         rewards = {agent_index: 0 for agent_index in range(self.num_agents)}
 
+        # Standardize Action
+        actions = {
+            i: self.agents[i].action_spec.to_dict(a) for i, a in actions.items()
+        }
+
         # Randomize agent action order
         if self.num_agents == 1:
             order = (0,)
@@ -830,8 +826,8 @@ class HyperGridEnv(gym.Env, RandomMixin):
             if agent.state.terminated:
                 continue
 
-            # Standardize Action
-            action = agent.action_spec.to_dict(action)
+            # # Standardize Action
+            # action = agent.action_spec.to_dict(action)
 
             # Update Orientation
             self._update_orientation(agent, action["orient"])
