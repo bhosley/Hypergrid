@@ -16,12 +16,16 @@ Configurations
 
 from .empty import EmptyEnv
 from .hot_or_cold import HotOrColdEnv
+from .foraging import ForagingEnv
+from .sensor_suite import SensorSuiteEnv
 
 
 CONFIGURATIONS = {
     "HyperGrid-Empty-v0": (EmptyEnv, {}),
     "HyperGrid-Empty-8x8-v0": (EmptyEnv, {"dims": [8, 8]}),
     "HyperGrid-HotCold-v0": (HotOrColdEnv, {}),
+    "Foraging": (ForagingEnv, {}),
+    "SensorSuite": (SensorSuiteEnv, {}),
 }
 
 # Register environments with gymnasium

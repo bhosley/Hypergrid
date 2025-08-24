@@ -9,6 +9,7 @@ from ..utils.enum import IndexedEnum
 TILE_PIXELS = 32
 
 COLORS = {
+    "clear": np.array([0, 0, 0]),
     "red": np.array([255, 0, 0]),
     "green": np.array([0, 255, 0]),
     "blue": np.array([0, 0, 255]),
@@ -52,6 +53,7 @@ class Color(str, IndexedEnum):
     Enumeration of object colors.
     """
 
+    clear = "clear"
     red = "red"
     green = "green"
     blue = "blue"

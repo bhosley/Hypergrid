@@ -18,8 +18,8 @@ class ForagingEnv(HyperGridEnv):
         self.food_loc = np.empty((num_food, self.n_dims), dtype=np.int32)
 
         self.level_based = level_based
-        self.agent_levels = np.zeros(self.num_agents)
-        self.food_levels = np.zeros(self.num_food)
+        self.agent_levels = np.ones(self.num_agents)
+        self.food_levels = np.ones(self.num_food)
 
     @override
     def _gen_grid(self, dims: Sequence[int]):
@@ -67,6 +67,9 @@ class ForagingEnv(HyperGridEnv):
             self.food_levels[food_ind] += 1
             self.agent_levels[[group]] += 1
 
+        self._redeploy_goal(food_ind)
+
+    def _redeploy_goal(self, food_ind):
         # Redeploy goal (preventing respawn at same location)
         new_loc = self.place_obj(Goal())
         if not new_loc:
@@ -121,7 +124,10 @@ class ForagingEnv(HyperGridEnv):
         taking the reward, preventing cooperation of agents
         on a task that isn't higher than every contributor.
         """
-        pass
+        if not self.cooperative_task:
+            super()._agent_interaction(self, agent, rewards)
+        else:
+            pass
 
     @override
     def _occupation_effects(

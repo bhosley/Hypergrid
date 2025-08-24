@@ -178,6 +178,7 @@ def get_algorithm_config(
     """
     Return the RL algorithm configuration dictionary.
     """
+
     config = (
         PPOConfig()
         # get_trainable_cls(algo)
@@ -190,17 +191,17 @@ def get_algorithm_config(
         .framework("torch")
         .environment(env=env, env_config={**env_config, "agents": num_agents})
         .training(lr=lr, train_batch_size=batch_size)
-        .multi_agent(
-            policies={f"policy_{i}" for i in range(num_agents)},
-            policy_mapping_fn=get_policy_mapping_fn(None, num_agents),
-            policies_to_train=[f"policy_{i}" for i in range(num_agents)],
-        )
         .env_runners(
             num_env_runners=num_workers,
             num_envs_per_env_runner=1,
             num_gpus_per_env_runner=num_gpus
             if torch.cuda.is_available()
             else 0,
+        )
+        .multi_agent(
+            policies={f"policy_{i}" for i in range(num_agents)},
+            policy_mapping_fn=get_policy_mapping_fn(None, num_agents),
+            policies_to_train=[f"policy_{i}" for i in range(num_agents)],
         )
         .rl_module(
             rl_module_spec=MultiRLModuleSpec(
