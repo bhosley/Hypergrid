@@ -209,37 +209,29 @@ def get_algorithm_config(
         )
     )
     if make_homo:
-        config = (
-            config
-            .rl_module(
-                rl_module_spec=MultiRLModuleSpec(
-                    rl_module_specs={
-                        f"policy_0": RLModuleSpec(module_class=CustomTorchModule)
-                    }
-                )
+        config = config.rl_module(
+            rl_module_spec=MultiRLModuleSpec(
+                rl_module_specs={
+                    "policy_0": RLModuleSpec(module_class=CustomTorchModule)
+                }
             )
-            .multi_agent(
-                policies={"policy_0"},
-                policy_mapping_fn=(lambda agent_id, *args, **kwargs: "policy_0"),
-                policies_to_train=["policy_0"],
-            )
+        ).multi_agent(
+            policies={"policy_0"},
+            policy_mapping_fn=lambda agent_id, *args, **kwargs: "policy_0",
+            policies_to_train=["policy_0"],
         )
     else:
-        config = ( 
-            config
-            .rl_module(
-                rl_module_spec=MultiRLModuleSpec(
-                    rl_module_specs={
-                        f"policy_{i}": RLModuleSpec(module_class=CustomTorchModule)
-                        for i in range(num_agents)
-                    }
-                )
+        config = config.rl_module(
+            rl_module_spec=MultiRLModuleSpec(
+                rl_module_specs={
+                    f"policy_{i}": RLModuleSpec(module_class=CustomTorchModule)
+                    for i in range(num_agents)
+                }
             )
-            .multi_agent(
-                policies={f"policy_{i}" for i in range(num_agents)},
-                policy_mapping_fn=get_policy_mapping_fn(None, num_agents),
-                policies_to_train=[f"policy_{i}" for i in range(num_agents)],
-            )
+        ).multi_agent(
+            policies={f"policy_{i}" for i in range(num_agents)},
+            policy_mapping_fn=get_policy_mapping_fn(None, num_agents),
+            policies_to_train=[f"policy_{i}" for i in range(num_agents)],
         )
     return config
 
@@ -283,11 +275,16 @@ def main(
     load_dir: str = None,
     wandb: bool = False,
     wandb_key: str = None,
+    make_homo: bool = False,
+    sensor_conf: str = "unknown",
     **kwargs,
 ):
     """"""
-
     config = get_algorithm_config(**kwargs)
+    # Record custom params
+    config["sensor_conf"] = sensor_conf
+    config["induced_hom"] = make_homo
+
     callbacks = []
 
     if wandb and not wandb_key:

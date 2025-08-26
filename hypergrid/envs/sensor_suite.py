@@ -29,8 +29,9 @@ class SensorSuiteUnwrapped(ForagingEnv):
             Each agent's boolean mask corresponding
             their ability to observe each color channel.
         """
-        super().__init__(agent_action_spec=OrthogonalActionSpec, **kwargs)
-
+        super().__init__(
+            agent_action_spec=OrthogonalActionSpec, fixed_level=True, **kwargs
+        )
         # Override agent color cycling
         self.team_color = Color.yellow
         self.agent_states[:, self.agent_states.COLOR_IDX] = self.team_color
@@ -110,9 +111,8 @@ class SensorSuiteUnwrapped(ForagingEnv):
             else:
                 self.place_agent(agent)
 
-        if self.level_based:
-            self.agent_levels = np.zeros(self.num_agents)
-            self.food_levels = np.zeros(self.num_food)
+        self.agent_levels = np.ones(self.num_agents)
+        self.food_levels = np.ones(self.num_food)
 
     # Cycle color of goals when redeployed
     @override
@@ -123,6 +123,7 @@ class SensorSuiteUnwrapped(ForagingEnv):
             raise RuntimeError(f"New location error: {new_loc=}")
         self.grid.set(self.food_loc[food_ind], WorldObj.empty())
         self.food_loc[food_ind] = new_loc
+        self.food_levels[food_ind] = random_choice((1, 2))
 
 
 class SensorSuiteEnv(OneHotObsWrapper):
@@ -130,8 +131,6 @@ class SensorSuiteEnv(OneHotObsWrapper):
 
     def __init__(self, **kwargs):
         super().__init__(SensorSuiteUnwrapped(**kwargs))
-
-        # Shift visibility mask to one hot
 
     # Catch and mask observations
     @override

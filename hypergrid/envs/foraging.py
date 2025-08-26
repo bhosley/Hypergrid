@@ -11,13 +11,21 @@ from ..hypergrid_env import HyperGridEnv, AgentID
 
 
 class ForagingEnv(HyperGridEnv):
-    def __init__(self, num_food: int = 1, level_based: bool = False, **kwargs):
+    def __init__(
+        self,
+        num_food: int = 1,
+        level_based: bool = False,
+        fixed_level: bool = False,
+        **kwargs,
+    ):
         super().__init__(**kwargs)
         self.cooperative_task = True
         self.num_food = num_food
         self.food_loc = np.empty((num_food, self.n_dims), dtype=np.int32)
 
         self.level_based = level_based
+        self.fixed_level = fixed_level
+        self.check_level = level_based or fixed_level
         self.agent_levels = np.ones(self.num_agents)
         self.food_levels = np.ones(self.num_food)
 
@@ -109,7 +117,7 @@ class ForagingEnv(HyperGridEnv):
 
             # For goals with groups, if necessary, check group level
             if food_group and (
-                not self.level_based
+                not self.check_level
                 or self.food_levels[f] <= self.agent_levels[[food_group]].sum()
             ):
                 self._on_success(food_ind=f, group=food_group, rewards=rewards)

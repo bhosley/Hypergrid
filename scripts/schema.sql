@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS experiments (
     num_agents      INTEGER NOT NULL,
     policy_type     TEXT NOT NULL,
     agent_sensors   TEXT,
-    exp_path        TEXT,
+    save_path       TEXT,
     -- config_hash     TEXT NOT NULL,      -- dedup key
     created_at      TEXT NOT NULL DEFAULT (datetime('now'))
 );
