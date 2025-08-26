@@ -1,6 +1,5 @@
 import sys
 
-# fmt: off
 sys.dont_write_bytecode = True
 
 import pytest
@@ -11,6 +10,8 @@ from hypergrid.envs.sensor_suite import SensorSuiteEnv as wrapped
 from hypergrid.core.constants import Color
 
 
+# Ruff formatter doesn't like the param fixtures below.
+# fmt: off
 @pytest.mark.parametrize(
     "agents, agent_sensors",
     [
@@ -54,4 +55,4 @@ def test_env_sensor_suite_sensor_input_robustness(agents, agent_sensors):
     env = unwrapped(agents=agents, agent_sensors=agent_sensors)
     assert not env.full_visibility
     env2 = wrapped(agents=agents, agent_sensors=agent_sensors)
-    assert env2.env.full_visibility
+    assert not env2.env.full_visibility

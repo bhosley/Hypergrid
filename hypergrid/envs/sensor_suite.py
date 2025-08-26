@@ -138,6 +138,9 @@ class SensorSuiteEnv(OneHotObsWrapper):
     def observation(self, obs):
         print("Caught an observation")
         obs = super().observation(obs)
+        if self.env.full_visibility:
+            return obs
+
         for agent_id in obs:
             vis_channels = self.env.agent_sensors[agent_id]
             mask = np.sum(
