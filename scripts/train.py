@@ -277,6 +277,7 @@ def main(
     wandb_key: str = None,
     make_homo: bool = False,
     sensor_conf: str = "unknown",
+    project_name: str = "hypergrid",
     **kwargs,
 ):
     """"""
@@ -295,7 +296,7 @@ def main(
 
         callbacks.append(
             WandbLoggerCallback(
-                project="hypergrid_0",  # your W&B project
+                project=project_name,  # your W&B project
                 group=f"rllib-{algo}",  # optional grouping
                 job_type="train",  # optional
                 tags=wandb_tags,  # optional

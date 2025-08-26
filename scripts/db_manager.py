@@ -18,6 +18,7 @@ def main(args, **kwargs):
         "wandb": True,
         "num_timesteps": 1e8,
         "num_workers": 8,
+        "project_name": f"hypergrid_{vers}",
     }
     # General use:
     # TODO: recover the better schema discoverer.
