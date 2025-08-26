@@ -247,6 +247,54 @@ def train(
     return results
 
 
+def main(
+    algo: str = "PPO",
+    num_timesteps: int = 1e7,
+    save_dir: str = "~/ray_results/",
+    wandb: bool = False,
+    wandb_key: str = None,
+    **kwargs,
+):
+    """"""
+
+    config = get_algorithm_config(
+        **vars(args),
+        **kwargs,
+    )
+    callbacks = []
+
+    if wandb and not wandb_key:
+        load_dotenv()
+        wandb_key = os.getenv("WANDB_KEY")
+    if wandb_key:
+        wandb_tags = [algo, "multiagent"]
+
+        callbacks.append(
+            WandbLoggerCallback(
+                project="hypergrid",  # your W&B project
+                group=f"rllib-{algo}",  # optional grouping
+                job_type="train",  # optional
+                tags=wandb_tags,  # optional
+                log_config=True,  # log the full RLlib/Tune config
+                save_code=True,  # snapshot code
+                api_key=wandb_key,  # or rely on wandb login/env var
+            )
+        )
+
+    # if args.env not in HRL.CONFIGURATIONS:
+    #     # register env
+    #     # TODO: add env registerer
+    #     pass
+
+    stop_conditions = {
+        "learners/__all_modules__/num_env_steps_trained_lifetime": num_timesteps
+    }
+    results = train(
+        config, stop_conditions, save_dir, callbacks=callbacks, **kwargs
+    )
+    return results
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -327,37 +375,11 @@ if __name__ == "__main__":
     )
 
     args = parser.parse_args()
-    config = get_algorithm_config(**vars(args))
 
     if args.build_test:
+        config = get_algorithm_config(**vars(args))
         config.build_algo()
         exit()
-
-    callbacks = []
-
-    if args.wandb and not args.wandb_key:
-        load_dotenv()
-        args.wandb_key = os.getenv("WANDB_KEY")
-    if args.wandb_key:
-        wandb_tags = ["PPO", "multiagent"]
-        args.algo
-
-        callbacks.append(
-            WandbLoggerCallback(
-                project="hypergrid",  # your W&B project
-                group="rllib-PPO",  # optional grouping
-                job_type="train",  # optional
-                tags=wandb_tags,  # optional
-                log_config=True,  # log the full RLlib/Tune config
-                save_code=True,  # snapshot code
-                api_key=args.wandb_key,  # or rely on wandb login/env var
-            )
-        )
-
-    # if args.env not in HRL.CONFIGURATIONS:
-    #     # register env
-    #     # TODO: add env registerer
-    #     pass
 
     if not args.silent:
         print(
@@ -367,10 +389,8 @@ if __name__ == "__main__":
             f"\n{'-' * 64}\n",
         )
 
-    stop_conditions = {
-        "learners/__all_modules__/num_env_steps_trained_lifetime": args.num_timesteps
-    }
-    train(config, stop_conditions, args.save_dir, args.load_dir, callbacks)
+    main(**vars(args))
+
 
 """
 python scripts/train2.py --build-test
