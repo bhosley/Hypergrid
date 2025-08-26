@@ -209,16 +209,37 @@ def get_algorithm_config(
         )
     )
     if make_homo:
-        config = config.multi_agent(
-            policies={"policy_0"},
-            policies_to_train=["policy_0"],
-            policy_mapping_fn=lambda _, *args, **kwargs: "policy_0",
+        config = (
+            config
+            .rl_module(
+                rl_module_spec=MultiRLModuleSpec(
+                    rl_module_specs={
+                        f"policy_0": RLModuleSpec(module_class=CustomTorchModule)
+                    }
+                )
+            )
+            .multi_agent(
+                policies={"policy_0"},
+                policy_mapping_fn=(lambda agent_id, *args, **kwargs: "policy_0"),
+                policies_to_train=["policy_0"],
+            )
         )
     else:
-        config = config.multi_agent(
-            policies={f"policy_{i}" for i in range(num_agents)},
-            policy_mapping_fn=get_policy_mapping_fn(None, num_agents),
-            policies_to_train=[f"policy_{i}" for i in range(num_agents)],
+        config = ( 
+            config
+            .rl_module(
+                rl_module_spec=MultiRLModuleSpec(
+                    rl_module_specs={
+                        f"policy_{i}": RLModuleSpec(module_class=CustomTorchModule)
+                        for i in range(num_agents)
+                    }
+                )
+            )
+            .multi_agent(
+                policies={f"policy_{i}" for i in range(num_agents)},
+                policy_mapping_fn=get_policy_mapping_fn(None, num_agents),
+                policies_to_train=[f"policy_{i}" for i in range(num_agents)],
+            )
         )
     return config
 
@@ -277,7 +298,7 @@ def main(
 
         callbacks.append(
             WandbLoggerCallback(
-                project="hypergrid",  # your W&B project
+                project="hypergrid_0",  # your W&B project
                 group=f"rllib-{algo}",  # optional grouping
                 job_type="train",  # optional
                 tags=wandb_tags,  # optional

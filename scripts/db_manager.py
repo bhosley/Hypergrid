@@ -200,6 +200,7 @@ def train_sample(
             # TODO: add a switch for this
             wandb=True,
             num_timesteps=1e8,
+            num_workers=8,
         )
         model_path = results[0].checkpoint.path
 
@@ -312,7 +313,7 @@ if __name__ == "__main__":
         )
 
     if args.populate:
-        populate_experiments(db_path=DB_PATH, exp_path="", samples=3)
+        populate_experiments(db_path=DB_PATH, exp_path="", samples=30)
         populate_train_samples(db_path=DB_PATH)
 
     for _ in range(args.run):
