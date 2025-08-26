@@ -5,7 +5,7 @@ from itertools import product
 from datetime import datetime
 import json
 
-from .train import main as train
+from scripts.train import main as train
 
 # def train(num_agents, env_config, make_homo, **kwargs):
 #     print(
@@ -184,10 +184,13 @@ def train_sample(
         # Clean config
         num_agents = int(conf["num_agents"])
         make_homo = conf["policy_type"] == "induced_hom"
+        sensors = json.loads(conf["agent_sensors"])
         env_config = {
             "agent_sensors": {
-                int(k): v for k, v in json.loads(conf["agent_sensors"]).items()
+                int(k): v for k, v in sensors["agent_sensors"].items()
             }
+            if sensors["agent_sensors"]
+            else None
         }
         # Call Train, collect path for recording
         results = train(
@@ -196,6 +199,7 @@ def train_sample(
             make_homo=make_homo,
             # TODO: add a switch for this
             wandb=True,
+            num_timesteps=1e8,
         )
         model_path = results[0].checkpoint.path
 
