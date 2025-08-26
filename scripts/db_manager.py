@@ -14,11 +14,12 @@ def main(args, **kwargs):
     """ """
     # Version Specific:
     vers = "v1"
+    project_name = f"hypergrid_{vers}"
     train_configs = {
         "wandb": True,
         "num_timesteps": 1e8,
         "num_workers": 8,
-        "project_name": f"hypergrid_{vers}",
+        "project_name": project_name,
     }
     # General use:
     # TODO: recover the better schema discoverer.
@@ -26,7 +27,7 @@ def main(args, **kwargs):
     schema_path = args.schema_path if args.schema_path else Path("./schema.sql")
     share_path = Path(
         os.path.relpath(os.getenv("SHARE_PATH"), Path().cwd().resolve())
-    ).joinpath(vers)
+    ).joinpath(project_name)
     db_path = share_path.joinpath("exp_manager.db")
     model_path = share_path.joinpath("ray_results")
 
