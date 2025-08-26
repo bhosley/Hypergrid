@@ -136,7 +136,6 @@ class SensorSuiteEnv(OneHotObsWrapper):
     # Catch and mask observations
     @override
     def observation(self, obs):
-        print("Caught an observation")
         obs = super().observation(obs)
         if self.env.full_visibility:
             return obs
