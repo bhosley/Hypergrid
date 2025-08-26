@@ -5,19 +5,18 @@ from itertools import product
 from datetime import datetime
 import json
 
-# from import main as train
+from .train import main as train
 
-
-def train(num_agents, env_config, make_homo, **kwargs):
-    print(
-        "Running training as"
-        "main(make_homo={},num_agents={},env_config={})".format(
-            make_homo, num_agents, env_config
-        )
-    )
-    # model_path = results[0].checkpoint.path
-    results = ["dummy_path"]
-    return results
+# def train(num_agents, env_config, make_homo, **kwargs):
+#     print(
+#         "Running training as"
+#         "main(make_homo={},num_agents={},env_config={})".format(
+#             make_homo, num_agents, env_config
+#         )
+#     )
+#     # model_path = results[0].checkpoint.path
+#     results = ["dummy_path"]
+#     return results
 
 
 SCHEMA_PATH = Path("schema.sql")
@@ -195,6 +194,8 @@ def train_sample(
             num_agents=num_agents,
             env_config=env_config,
             make_homo=make_homo,
+            # TODO: add a switch for this
+            wandb=True,
         )
         model_path = results[0].checkpoint.path
 
