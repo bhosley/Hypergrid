@@ -164,7 +164,7 @@ class CustomTorchModule(TorchRLModule, ValueFunctionAPI):
 
 def get_algorithm_config(
     algo: str = "PPO",
-    env: str = "HyperGrid-Empty-v0",
+    env: str = "SensorSuite",
     env_config: dict = {},
     num_agents: int = 2,
     num_workers: int = 0,
@@ -173,6 +173,7 @@ def get_algorithm_config(
     batch_size: int | None = NotProvided,
     # lstm: bool = False, TODO: implement LSTM model
     # centralized_critic: bool = False, TODO: implement centralized critic
+    make_homo: bool = False,
     **kwargs,
 ) -> AlgorithmConfig:
     """
@@ -198,11 +199,6 @@ def get_algorithm_config(
             if torch.cuda.is_available()
             else 0,
         )
-        .multi_agent(
-            policies={f"policy_{i}" for i in range(num_agents)},
-            policy_mapping_fn=get_policy_mapping_fn(None, num_agents),
-            policies_to_train=[f"policy_{i}" for i in range(num_agents)],
-        )
         .rl_module(
             rl_module_spec=MultiRLModuleSpec(
                 rl_module_specs={
@@ -212,6 +208,18 @@ def get_algorithm_config(
             )
         )
     )
+    if make_homo:
+        config = config.multi_agent(
+            policies={"policy_0"},
+            policies_to_train=["policy_0"],
+            policy_mapping_fn=lambda _, *args, **kwargs: "policy_0",
+        )
+    else:
+        config = config.multi_agent(
+            policies={f"policy_{i}" for i in range(num_agents)},
+            policy_mapping_fn=get_policy_mapping_fn(None, num_agents),
+            policies_to_train=[f"policy_{i}" for i in range(num_agents)],
+        )
     return config
 
 
@@ -251,16 +259,14 @@ def main(
     algo: str = "PPO",
     num_timesteps: int = 1e7,
     save_dir: str = "~/ray_results/",
+    load_dir: str = None,
     wandb: bool = False,
     wandb_key: str = None,
     **kwargs,
 ):
     """"""
 
-    config = get_algorithm_config(
-        **vars(args),
-        **kwargs,
-    )
+    config = get_algorithm_config(**kwargs)
     callbacks = []
 
     if wandb and not wandb_key:
@@ -289,9 +295,7 @@ def main(
     stop_conditions = {
         "learners/__all_modules__/num_env_steps_trained_lifetime": num_timesteps
     }
-    results = train(
-        config, stop_conditions, save_dir, callbacks=callbacks, **kwargs
-    )
+    results = train(config, stop_conditions, save_dir, load_dir, callbacks)
     return results
 
 
