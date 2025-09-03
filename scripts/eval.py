@@ -140,6 +140,7 @@ def eval_episode(policy_set, env, episodes=1):
         rewards = {_: 0 for _ in range(env.env.num_agents)}
 
         over = False
+        episode_length = 0
         while not over:
             actions = {}
             for i, o in obss.items():
@@ -158,12 +159,13 @@ def eval_episode(policy_set, env, episodes=1):
             # Record rewards
             for i, r in rews.items():
                 rewards[i] += r
-
+            episode_length += 1
             over = np.all(list(terms.values())) or np.all(list(truncs.values()))
         # Log metrics
         record.append(
             {f"episode_reward.policy_{i}": r for i, r in rewards.items()}
         )
+        record.append({"episode_length": episode_length})
     return record
 
 
