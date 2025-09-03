@@ -38,7 +38,6 @@ def change_coverage(sensors, decrease=True):
     if not indices:
         return sensors
     idx = random.choice(indices) + 1
-    print(idx)
     if decrease:
         for i in sensors.keys():
             sensors[i][idx] = 0
@@ -131,6 +130,7 @@ def main(
                     "episode": episode,
                 }
                 wandb.log(info | rew)
+            wandb.finish()
 
 
 def eval_episode(policy_set, env, episodes=1):

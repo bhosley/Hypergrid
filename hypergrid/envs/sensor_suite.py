@@ -1,10 +1,9 @@
 import numpy as np
 from numpy.typing import NDArray
-from collections.abc import Iterable, Sequence
+from collections.abc import Sequence
 
 from ..hypergrid_env import AgentID
 from ..core.actions import OrthogonalActionSpec
-from ..core.agent import Agent
 from ..core.constants import Color
 from ..utils.wrappers import OneHotObsWrapper
 from .foraging import ForagingEnv
@@ -19,7 +18,6 @@ from random import choice as random_choice
 class SensorSuiteUnwrapped(ForagingEnv):
     def __init__(
         self,
-        agents: Iterable[Agent] | int = None,
         agent_sensors: dict[AgentID, NDArray] = None,
         full_visibility: bool = False,
         remove_agents: list[AgentID] = None,
