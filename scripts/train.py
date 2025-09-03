@@ -275,7 +275,7 @@ def main(
     num_timesteps: int = 1e7,
     save_dir: str = "~/ray_results/",
     load_dir: str = None,
-    wandb: bool = False,
+    use_wandb: bool = False,
     wandb_key: str = None,
     make_homo: bool = False,
     sensor_conf: str = "unknown",
@@ -290,7 +290,7 @@ def main(
 
     callbacks = []
 
-    if wandb and not wandb_key:
+    if use_wandb and not wandb_key:
         load_dotenv()
         wandb_key = os.getenv("WANDB_API_KEY")
     if wandb_key:

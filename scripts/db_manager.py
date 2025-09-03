@@ -17,7 +17,7 @@ def main(args, **kwargs):
     vers = "v1"
     project_name = f"hypergrid_{vers}"
     train_configs = {
-        "wandb": True,
+        "use_wandb": True,
         "num_timesteps": 1e8,
         "num_workers": 8,
         "project_name": project_name,
@@ -149,9 +149,15 @@ def clean(
     conn = connect_to_DB(db_path)
     cursor = conn.cursor()
     # Pre-defined queries.
-    query_stale = """
+    query_stale_trains = """
         SELECT run_id, started_at
         FROM train_runs
+        WHERE status = 'running'
+        AND julianday('now') - julianday(started_at, 'utc') > ?/1440.0
+        """
+    query_stale_evals = """
+        SELECT eval_id, started_at
+        FROM eval_runs
         WHERE status = 'running'
         AND julianday('now') - julianday(started_at, 'utc') > ?/1440.0
         """
@@ -161,13 +167,26 @@ def clean(
         WHERE run_id=?
         """
     # Collect stale records
-    stale_recs = cursor.execute(query_stale, (minutes,)).fetchall()
+    stale_recs = cursor.execute(query_stale_trains, (minutes,)).fetchall()
     count = 0
     for rec in stale_recs:
         # Try to reset the stale records
         if not test:
             try:
                 cursor.execute(query_reset_rec, (rec["run_id"],))
+                conn.execute("COMMIT")
+                count += 1
+            except sqlite3.Error as e:
+                # Roll back the transaction if an error occurs
+                print(f"An error occurred: {e}")
+                conn.execute("ROLLBACK")
+
+    stale_recs = cursor.execute(query_stale_evals, (minutes,)).fetchall()
+    for rec in stale_recs:
+        # Try to reset the stale records
+        if not test:
+            try:
+                cursor.execute(query_reset_rec, (rec["eval_id"],))
                 conn.execute("COMMIT")
                 count += 1
             except sqlite3.Error as e:
@@ -467,6 +486,8 @@ def eval_replication(db_path: Path | str, eval_sample_size: int = 5):
         eval_conf["load_dir"] = run_conf["model_path"]
         # Other params
         eval_conf["episodes"] = eval_sample_size
+        # TODO: Move this variable out
+        eval_conf["use_wandb"] = True
         # Release the database for concurrent runners
         if conn:
             conn.close()
