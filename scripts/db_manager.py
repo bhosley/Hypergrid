@@ -16,7 +16,7 @@ def main(args, **kwargs):
     # Version Specific:
     vers = "v1"
     project_name = f"hypergrid_{vers}"
-    train_configs = {
+    _configs = {
         "use_wandb": True,
         "num_timesteps": 1e8,
         "num_workers": 8,
@@ -26,6 +26,7 @@ def main(args, **kwargs):
 
     # General use:
     # TODO: recover the better schema discoverer.
+    # TODO: fix path resolver for db
     load_dotenv()
     schema_path = args.schema_path if args.schema_path else Path("./schema.sql")
     share_path = Path(
@@ -48,9 +49,9 @@ def main(args, **kwargs):
         populate_train_samples(db_path=db_path)
         populate_eval_samples(db_path=db_path, eval_types=eval_types)
     for _ in range(args.run):
-        train_replication(db_path=db_path, train_configs=train_configs)
-    if args.eval:
-        eval_replication(db_path=db_path, eval_sample_size=args.eval)
+        train_replication(db_path=db_path, train_configs=_configs)
+    for _ in range(args.eval):
+        eval_replication(db_path=db_path, configs=_configs)
 
 
 # --- DB Functions --- #
@@ -146,64 +147,57 @@ def clean(
     conn = connect_to_DB(db_path)
     cursor = conn.cursor()
     # Pre-defined queries.
-    # query_stale_trains = """
-    #     SELECT run_id, started_at
-    #     FROM train_runs
-    #     WHERE status = 'running'
-    #     AND julianday('now') - julianday(started_at, 'utc') > ?/1440.0
-    #     """
-    # query_stale_evals = """
-    #     SELECT eval_id, started_at
-    #     FROM eval_runs
-    #     WHERE status = 'running'
-    #     AND julianday('now') - julianday(started_at, 'utc') > ?/1440.0
-    #     """
     query_stale_runs = """
-        SELECT ?, started_at
+        SELECT {}, started_at
         FROM {}
         WHERE status = 'running'
         AND julianday('now') - julianday(started_at, 'utc') > ?/1440.0
         """
-    query_reset_rec = "UPDATE ? SET status='pending', started_at=NULL WHERE ?=?"
+    query_reset_rec = """
+        UPDATE {} 
+        SET status='pending', started_at=NULL 
+        WHERE {}=?
+        """
     # Collect stale records
     stale_recs = cursor.execute(
-        query_stale_runs.format("train_runs"), ("run_id", minutes)
+        query_stale_runs.format("run_id", "train_runs"), (minutes,)
     ).fetchall()
     # stale_recs = cursor.execute(query_stale_trains, (minutes,)).fetchall()
-    count = 0
-    for rec in stale_recs:
-        # Try to reset the stale records
-        if not test:
-            try:
-                train_vals = ("train_runs", "run_id", rec["run_id"])
-                cursor.execute(query_reset_rec, train_vals)
-                conn.execute("COMMIT")
-                count += 1
-            except sqlite3.Error as e:
-                # Roll back the transaction if an error occurs
-                print(f"An error occurred: {e}")
-                conn.execute("ROLLBACK")
+    count = [len(stale_recs),0]
+    if stale_recs:
+        for rec in stale_recs:
+            # Try to reset the stale records
+            if not test:
+                try:
+                    cursor.execute(query_reset_rec.format("train_runs", "run_id"), (rec["run_id"],))
+                    conn.execute("COMMIT")
+                    count[1] += 1
+                except sqlite3.Error as e:
+                    # Roll back the transaction if an error occurs
+                    print(f"An error occurred: {e}")
+                    conn.execute("ROLLBACK")
     stale_recs = cursor.execute(
-        query_stale_runs.format("eval_runs"), ("eval_id", minutes)
+        query_stale_runs.format("eval_id", "eval_runs"), (minutes,)
     ).fetchall()
+    count[0] += len(stale_recs)
     # stale_recs = cursor.execute(query_stale_evals, (minutes,)).fetchall()
-    for rec in stale_recs:
-        # Try to reset the stale records
-        if not test:
-            try:
-                eval_vals = ("eval_runs", "eval_id", rec["eval_id"])
-                cursor.execute(query_reset_rec, eval_vals)
-                conn.execute("COMMIT")
-                count += 1
-            except sqlite3.Error as e:
-                # Roll back the transaction if an error occurs
-                print(f"An error occurred: {e}")
-                conn.execute("ROLLBACK")
+    if stale_recs:
+        for rec in stale_recs:
+            # Try to reset the stale records
+            if not test:
+                try:
+                    cursor.execute(query_reset_rec.format("eval_runs", "eval_id"), (rec["eval_id"],))
+                    conn.execute("COMMIT")
+                    count[1] += 1
+                except sqlite3.Error as e:
+                    # Roll back the transaction if an error occurs
+                    print(f"An error occurred: {e}")
+                    conn.execute("ROLLBACK")
     if conn:
         conn.close()
     print(
         "Found {} stale records, successfully removed {}.".format(
-            len(stale_recs), count
+            *count
         )
     )
 
@@ -425,7 +419,7 @@ def populate_eval_samples(
             conn.close()
 
 
-def eval_replication(db_path: Path | str, eval_sample_size: int = 5):
+def eval_replication(db_path: Path | str, eval_sample_size: int = 5, configs: dict = {}):
     """ """
     # Get Connection
     conn = connect_to_DB(db_path)
@@ -471,6 +465,7 @@ def eval_replication(db_path: Path | str, eval_sample_size: int = 5):
         # Get experiment info
         exp_conf = cursor.execute(query_get_exp_config, (exp_id,)).fetchone()
         eval_conf["num_agents"] = exp_conf["num_agents"]
+        eval_conf["policy_type"] = exp_conf["policy_type"]
         sensors = json.loads(exp_conf["agent_sensors"])
         eval_conf["sensor_config"] = sensors["config"]
         eval_conf["agent_sensors"] = (
@@ -482,15 +477,15 @@ def eval_replication(db_path: Path | str, eval_sample_size: int = 5):
         run_conf = cursor.execute(query_get_run_config, (run_id,)).fetchone()
         eval_conf["load_dir"] = run_conf["model_path"]
         # Other params
-        eval_conf["episodes"] = eval_sample_size
         # TODO: Move this variable out
-        eval_conf["use_wandb"] = True
-        eval_conf["max_steps"] = 1000
+        # eval_conf["use_wandb"] = True
+        eval_conf["episodes"] = 30
+        eval_conf["max_steps"] = 200
         # Release the database for concurrent runners
         if conn:
             conn.close()
 
-        eval(**eval_conf)
+        eval(**eval_conf, **configs)
 
         end_time = datetime.now().isoformat()
         # When finished training reopen DB connection

@@ -57,7 +57,8 @@ def main(
     use_wandb: bool = False,
     wandb_key: str = None,
     project_name: str = "hypergrid",
-    sensor_config: str = "",
+    sensor_config: str = None,
+    policy_type: str = None,
     **kwargs,
 ):
     """ """
@@ -111,34 +112,33 @@ def main(
     )
     # Eval each type
     for eval_type, eval_conf in eval_configs.items():
-        env = target_env(**overall_conf, **eval_conf)
-        rec = eval_episode(
-            policy_set=restored_module,
-            env=env,
-            episodes=episodes,
-        )
+        env = target_env(**overall_conf, **eval_conf, **kwargs)
         if wandb_key:
             wandb.login()
             wandb.init(
                 project=f"{project_name}_eval",
                 name=f"{eval_type}_{sensor_config}",
+                group=policy_type
             )
-            for episode, rew in enumerate(rec):
-                info = {
-                    "conf.num_agents": num_agents,
-                    "conf.eval_type": eval_type,
-                    "episode": episode,
-                }
-                wandb.log(info | rew)
+            wandb.config.update({
+                "num_agents": num_agents,
+                "policy_type": policy_type,
+                "eval_type": eval_type,
+            })
+        eval_episode(
+            policy_set=restored_module,
+            env=env,
+            episodes=episodes,
+            wandb_key=wandb_key,
+        )
+        if wandb_key:
             wandb.finish()
 
 
-def eval_episode(policy_set, env, episodes=1):
-    record = []
-    for episode in range(episodes):
+def eval_episode(policy_set, env, episodes=1, wandb_key=None):
+    for ep in range(episodes):
         obss, infos = env.reset()
         rewards = {_: 0 for _ in range(env.env.num_agents)}
-
         over = False
         episode_length = 0
         while not over:
@@ -162,11 +162,18 @@ def eval_episode(policy_set, env, episodes=1):
             episode_length += 1
             over = np.all(list(terms.values())) or np.all(list(truncs.values()))
         # Log metrics
-        record.append(
-            {f"episode_reward.policy_{i}": r for i, r in rewards.items()}
-        )
-        record.append({"episode_length": episode_length})
-    return record
+        if wandb_key:
+            episode_stats = {
+                "episode": ep+1,
+                "metrics/length": episode_length,
+                "metrics/returns/mean": np.mean(list(rewards.values())),
+                "metrics/returns/min": np.min(list(rewards.values())),
+                "metrics/returns/max": np.max(list(rewards.values())),
+            }
+            agent_stats = {
+                f"metrics/returns/policy_{i}": r for i, r in rewards.items()
+            }
+            wandb.log(episode_stats|agent_stats)
 
 
 if __name__ == "__main__":
