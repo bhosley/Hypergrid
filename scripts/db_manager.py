@@ -53,7 +53,7 @@ def main(args, **kwargs):
         eval_replication(db_path=db_path, eval_sample_size=args.eval)
 
 
-# --- --- #
+# --- DB Functions --- #
 
 
 def connect_to_DB(
@@ -85,9 +85,6 @@ def connect_to_DB(
     conn.row_factory = sqlite3.Row
 
     return conn
-
-
-# --- --- #
 
 
 def make_new_DB(
@@ -149,44 +146,63 @@ def clean(
     conn = connect_to_DB(db_path)
     cursor = conn.cursor()
     # Pre-defined queries.
-    query_stale_trains = """
-        SELECT run_id, started_at
-        FROM train_runs
+    # query_stale_trains = """
+    #     SELECT run_id, started_at
+    #     FROM train_runs
+    #     WHERE status = 'running'
+    #     AND julianday('now') - julianday(started_at, 'utc') > ?/1440.0
+    #     """
+    # query_stale_evals = """
+    #     SELECT eval_id, started_at
+    #     FROM eval_runs
+    #     WHERE status = 'running'
+    #     AND julianday('now') - julianday(started_at, 'utc') > ?/1440.0
+    #     """
+    query_stale_runs = """
+        SELECT ?, started_at
+        FROM ?
         WHERE status = 'running'
         AND julianday('now') - julianday(started_at, 'utc') > ?/1440.0
         """
-    query_stale_evals = """
-        SELECT eval_id, started_at
-        FROM eval_runs
-        WHERE status = 'running'
-        AND julianday('now') - julianday(started_at, 'utc') > ?/1440.0
-        """
-    query_reset_rec = """
-        UPDATE train_runs
-        SET status='pending', started_at=NULL
-        WHERE run_id=?
-        """
+    query_reset_rec = "UPDATE ? SET status='pending', started_at=NULL WHERE ?=?"
     # Collect stale records
-    stale_recs = cursor.execute(query_stale_trains, (minutes,)).fetchall()
+    stale_recs = cursor.execute(
+        query_stale_runs,
+        (
+            "run_id",
+            "train_runs",
+            minutes,
+        ),
+    ).fetchall()
+    # stale_recs = cursor.execute(query_stale_trains, (minutes,)).fetchall()
     count = 0
     for rec in stale_recs:
         # Try to reset the stale records
         if not test:
             try:
-                cursor.execute(query_reset_rec, (rec["run_id"],))
+                train_vals = ("train_runs", "run_id", rec["run_id"])
+                cursor.execute(query_reset_rec, train_vals)
                 conn.execute("COMMIT")
                 count += 1
             except sqlite3.Error as e:
                 # Roll back the transaction if an error occurs
                 print(f"An error occurred: {e}")
                 conn.execute("ROLLBACK")
-
-    stale_recs = cursor.execute(query_stale_evals, (minutes,)).fetchall()
+    stale_recs = cursor.execute(
+        query_stale_runs,
+        (
+            "eval_id",
+            "eval_runs",
+            minutes,
+        ),
+    ).fetchall()
+    # stale_recs = cursor.execute(query_stale_evals, (minutes,)).fetchall()
     for rec in stale_recs:
         # Try to reset the stale records
         if not test:
             try:
-                cursor.execute(query_reset_rec, (rec["eval_id"],))
+                eval_vals = ("eval_runs", "eval_id", rec["eval_id"])
+                cursor.execute(query_reset_rec, eval_vals)
                 conn.execute("COMMIT")
                 count += 1
             except sqlite3.Error as e:
@@ -200,6 +216,9 @@ def clean(
             len(stale_recs), count
         )
     )
+
+
+# --- Content Functions --- #
 
 
 def populate_experiments(
@@ -404,18 +423,6 @@ def populate_eval_samples(
             values = (eval_row["exp_id"], eval_row["run_id"], "pending")
             cursor.execute(query_add_eval, values)
             entries += 1
-        # for eval_type in eval_types:
-        #     # Find unscheduled evals
-        #     cursor.execute(query_unscheduled_evals)
-        #     unscheduled_evals = cursor.fetchall()
-        #     for eval_row in unscheduled_evals:
-        #         values = (
-        #             eval_row["exp_id"],
-        #             eval_row["run_id"],
-        #             "pending"
-        #         )
-        #         cursor.execute(query_add_eval, values)
-        #         entries += 1
         print(f"Adding {entries} new evaluations")
         if entries > 0:
             conn.execute("COMMIT")
@@ -488,6 +495,7 @@ def eval_replication(db_path: Path | str, eval_sample_size: int = 5):
         eval_conf["episodes"] = eval_sample_size
         # TODO: Move this variable out
         eval_conf["use_wandb"] = True
+        eval_conf["max_steps"] = 1000
         # Release the database for concurrent runners
         if conn:
             conn.close()
