@@ -457,13 +457,11 @@ def eval_replication(db_path: Path | str, eval_sample_size: int = 5):
         eval_conf["num_agents"] = exp_conf["num_agents"]
         sensors = json.loads(exp_conf["agent_sensors"])
         eval_conf["sensor_config"] = sensors["config"]
-        eval_conf["agent_sensors"] = {
-            "agent_sensors": {
-                int(k): v for k, v in sensors["agent_sensors"].items()
-            }
+        eval_conf["agent_sensors"] = (
+            {int(k): v for k, v in sensors["agent_sensors"].items()}
             if sensors["agent_sensors"]
             else None
-        }
+        )
         # Get directory
         run_conf = cursor.execute(query_get_run_config, (run_id,)).fetchone()
         eval_conf["load_dir"] = run_conf["model_path"]

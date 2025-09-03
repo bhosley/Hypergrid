@@ -16,10 +16,9 @@ from hypergrid.envs.sensor_suite import SensorSuiteEnv as ENVCLASS
 
 
 def flip_random_bit(lst, val=0):
-    agent = random.choice(list(range(len(lst))))
+    agent = random.choice(list(lst.keys()))
     # Find indices of all 1s
-    indices = [i for i, v in enumerate(lst[agent][1:]) if v != val]
-    # ones_indices = [i for i, v in enumerate(lst[agent][1:]) if v == 1]
+    indices = [i for i, v in enumerate(lst[(agent)][1:]) if v != val]
     if not indices:
         return lst  # no 1s to flip
     # Pick a random index that doesn't contain the value
