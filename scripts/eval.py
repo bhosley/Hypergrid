@@ -60,6 +60,7 @@ def main(
     wandb_key: str = None,
     project_name: str = "hypergrid",
     sensor_config: str = "",
+    **kwargs,
 ):
     """ """
     if not agent_sensors:

@@ -454,7 +454,7 @@ def eval_replication(db_path: Path | str, eval_sample_size: int = 5):
         run_id = row["run_id"]
         # Get experiment info
         exp_conf = cursor.execute(query_get_exp_config, (exp_id,)).fetchone()
-        eval_conf["agents"] = exp_conf["num_agents"]
+        eval_conf["num_agents"] = exp_conf["num_agents"]
         sensors = json.loads(exp_conf["agent_sensors"])
         eval_conf["sensor_config"] = sensors["config"]
         eval_conf["agent_sensors"] = {
