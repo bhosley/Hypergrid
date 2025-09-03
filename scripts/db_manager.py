@@ -434,11 +434,7 @@ def eval_replication(db_path: Path | str, eval_sample_size: int = 5):
         """
     query_get_exp_config = "SELECT * FROM experiments WHERE exp_id=?"
     query_get_run_config = "SELECT * FROM train_runs WHERE run_id=?"
-
-    query_get_eval_config = """
-        SELECT * FROM experiments
-        WHERE eval_id=?
-    """
+    query_get_eval_config = "SELECT * FROM eval_runs WHERE eval_id=?"
     try:
         # Randomly select a scheduled sample
         eval_entry = cursor.execute(query_get_random).fetchone()

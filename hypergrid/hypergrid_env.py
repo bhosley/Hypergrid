@@ -17,7 +17,6 @@ from .core.mission import MissionSpace
 from .core.world_object import WorldObj, Goal, Lava
 from .utils.obs import gen_obs_grid_encoding
 from .utils.random import RandomMixin
-
 ### Typing
 
 AgentID: TypeAlias = int
@@ -848,59 +847,6 @@ class HyperGridEnv(gym.Env, RandomMixin):
 
         return rewards
 
-
-class HyperGrid(HyperGridEnv):
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-
-    # def gen_obs(self) -> dict[AgentID, ObsType]:
-    #     obs = super().gen_obs()
-    #     #TODO: !Vis Channels here - Seems like a good spot
-    #     return obs
-
-    #   def handle_action():
-    #  super or whatever:
-
-    #             # Pick up an object
-    #             elif action == Action.pickup:
-    #                 fwd_pos = agent.front_pos
-    #                 fwd_obj = self.grid.get(*fwd_pos)
-
-    #                 if fwd_obj is not None and fwd_obj.can_pickup():
-    #                     if agent.state.carrying is None:
-    #                         agent.state.carrying = fwd_obj
-    #                         self.grid.set(*fwd_pos, None)
-
-    #             # Drop an object
-    #             elif action == Action.drop:
-    #                 fwd_pos = agent.front_pos
-    #                 fwd_obj = self.grid.get(*fwd_pos)
-
-    #                 if agent.state.carrying and fwd_obj is None:
-    #                     agent_present = np.bitwise_and.reduce(
-    #                         self.agent_states.pos == fwd_pos, axis=1).any()
-    #                     if not agent_present:
-    #                         self.grid.set(*fwd_pos, agent.state.carrying)
-    #                         agent.state.carrying.cur_pos = fwd_pos
-    #                         agent.state.carrying = None
-
-    #             # Toggle/activate an object
-    #             elif action == Action.toggle:
-    #                 fwd_pos = agent.front_pos
-    #                 fwd_obj = self.grid.get(*fwd_pos)
-
-    #                 if fwd_obj is not None:
-    #                     fwd_obj.toggle(self, agent, fwd_pos)
-
-    #             # Done action (not used by default)
-    #             elif action == Action.done:
-    #                 pass
-
-    #             else:
-    #                 raise ValueError(f"Unknown action: {action}")
-
-    #         return rewards
-
     # -------------------------- Render Functions: -------------------------- #
 
     def __str__(self):
@@ -910,16 +856,38 @@ class HyperGrid(HyperGridEnv):
         the object and the second one for the color.
         """
         # Map of object types to short string
-        # OBJECT_TO_STR = {
-        #     "wall": "W",
-        #     "floor": "F",
-        #     "door": "D",
-        #     "key": "K",
-        #     "ball": "A",
-        #     "box": "B",
-        #     "goal": "G",
-        #     "lava": "V",
-        # }
+        SYMBOLS = {
+            "unseen": " ",
+            "empty": "\u00b7",
+            "wall": "\u2588",  # █
+            "goal": "\u25c8",  # ◆
+        }
+        OBJECT_TO_ASCII = {
+            i: SYMBOLS[o] if o in SYMBOLS.keys() else " "
+            for i, o in enumerate(Type)
+        }
+        # "floor", "door", "key", "ball", "box", "goal", "lava",
+
+        if self.n_dims > 2:
+            # No support for higher dims yet.
+            return ""
+
+        # Support for printing 2D
+        # dir_to_string = np.array([
+        #     ['↖','↑','↗'],
+        #     ['←','o','→'],
+        #     ['↙','↓','↘']]).T
+        # dir_to_uniglyph = np.array([
+        #     ['◤','▲','◥'],
+        #     ['◀','◬','▶'],
+        #     ['◣','▼','◢']]).T
+        dir_to_unicode = np.array(
+            [
+                ["\u25e4", "\u25b2", "\u25e5"],
+                ["\u25c0", "\u25ec", "\u25b6"],
+                ["\u25e3", "\u25bc", "\u25e2"],
+            ]
+        ).T
 
         # # Map agent's direction to short string
         # AGENT_DIR_TO_STR = {0: '>', 1: 'V', 2: '<', 3: '^'}
@@ -927,43 +895,29 @@ class HyperGrid(HyperGridEnv):
         # # Get agent locations
         # location_to_agent = {tuple(agent.pos): agent for agent in self.agents}
 
+        # Copy grid size
+        view = np.empty_like(self.grid.state.T[0], dtype=str)
+        # Change objects to ASCII
+        for i, v in np.ndenumerate(self.grid.state.T[0]):
+            view[i] = OBJECT_TO_ASCII[v]
+        # Insert Agents
+        for a in self.agent_states:
+            if not a.terminated:
+                view.T[*a.pos] = dir_to_unicode[*([1, 1] + a.dir)]
+        # Convert to string and return
         output = ""
-        # For each pair of Dims:
-
-        d_axes = [[i, i + 1] for i in range(self.n_dims - 1)]
-        for x, y in d_axes:
-            output += f"Showing d_{x} x d_{y}\n"
-        #         for j in range(self.grid.height):
-        #             for i in range(self.grid.width):
-        #                 if (i, j) in location_to_agent:
-        #                     output += 2 * AGENT_DIR_TO_STR[location_to_agent[i, j].dir]
-        #                     continue
-
-        #                 tile = self.grid.get(i, j)
-
-        #                 if tile is None:
-        #                     output += '  '
-        #                     continue
-
-        #                 if tile.type == 'agent':
-        #                     output += 2 * AGENT_DIR_TO_STR[tile.dir]
-        #                     continue
-
-        #                 if tile.type == 'door':
-        #                     if tile.is_open:
-        #                         output += '__'
-        #                     elif tile.is_locked:
-        #                         output += 'L' + tile.color[0].upper()
-        #                     else:
-        #                         output += 'D' + tile.color[0].upper()
-        #                     continue
-
-        #                 output += OBJECT_TO_STR[tile.type] + tile.color[0].upper()
-
-        #             if j < self.grid.height - 1:
-        #                 output += '\n'
+        for row in view:
+            output += str().join(row)
+            output += "\n"
 
         return output
+
+
+class HyperGrid(HyperGridEnv):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+    # -------------------------- Render Functions: -------------------------- #
 
     def get_pov_render(self, *args, **kwargs):
         """
