@@ -75,7 +75,7 @@ def main(
         wandb_key = os.getenv("WANDB_API_KEY")
 
     # Construct eval configs
-    overall_conf = {}
+    overall_conf = {"agents": num_agents}
     eval_types = [
         "baseline",
         "agent_loss",
@@ -150,10 +150,8 @@ def eval_episode(policy_set, env, episodes=1):
                 logits = pol.forward_inference({"obs": tens_obs})[
                     "action_dist_inputs"
                 ]
-                act_dist = pol.action_dist_cls.from_logits(
-                    logits
-                ).to_deterministic()
-                act = act_dist.sample().to_deterministic().T[0]
+                act_dist = pol.action_dist_cls.from_logits(logits)
+                act = act_dist.to_deterministic().sample().T[0]
                 actions[i] = act
             # Step
             obss, rews, terms, truncs, infos = env.step(actions)
