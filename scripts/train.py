@@ -331,7 +331,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--env",
         type=str,
-        default="HyperGrid-Empty-v0",
+        default="SensorSuite",
         help="HyperGrid environment to use.",
     )
     parser.add_argument(
@@ -415,8 +415,3 @@ if __name__ == "__main__":
         )
 
     main(**vars(args))
-
-
-"""
-python scripts/train2.py --build-test
-"""

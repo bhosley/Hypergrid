@@ -39,6 +39,3 @@ CREATE TABLE IF NOT EXISTS eval_runs (
     started_at  TEXT,
     finished_at TEXT
 );
-
-CREATE UNIQUE INDEX IF NOT EXISTS idx_eval_runs_runid_type
-    ON eval_runs(run_id, eval_type);

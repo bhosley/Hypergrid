@@ -590,6 +590,15 @@ if __name__ == "__main__":
         help="Run.",
     )
     parser.add_argument(
+        "-E",
+        "--eval",
+        type=int,
+        nargs="?",
+        const=1,
+        default=0,
+        help="Evaluate.",
+    )
+    parser.add_argument(
         "-T",
         "--test",
         action="store_true",
