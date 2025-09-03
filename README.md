@@ -25,7 +25,7 @@ to maintain Minigrid's compatibility with the [Gymnasium](https://github.com/Far
 Hypergrid additionally borrows inspiration from [Multigrid](https://github.com/ini/multigrid)
 by integrating support for multiple agents.
 
-# Installation
+## Installation
 
 To install the Hypergrid for use, run the following:
 
@@ -50,7 +50,7 @@ pip install -e ".[dev]"
 
 This package requires Python 3.13 or later.
 
-# Environments
+## Environments
 
 <!--
 ## Minigrid
@@ -62,7 +62,24 @@ The list of the environments that were included in the original `Minigrid` libra
 The [rl-starter-files](https://github.com/lcswillems/torch-rl) is a repository with examples on how to train `Minigrid` environments with RL algorithms. This code has been tested and is known to work with this environment. The default hyper-parameters are also known to converge.
 -->
 
-# Citation
+## Examples
+
+Example Script trains using RLlib,
+install dependencies with:
+```bash
+pip install -e ".[rl_scripts]"
+```
+
+
+Uses a .env at the project root, to support WandB api key.
+```text
+WANDB_API_KEY="<api_key>"
+```
+
+
+
+
+## Citation
 <!--
 The original `gym-minigrid` environments were created as part of work done at [Mila](https://mila.quebec). The Dynamic obstacles environment were added as part of work done at [IAS in TU Darmstadt](https://www.ias.informatik.tu-darmstadt.de/) and the University of Genoa for mobile robot navigation with dynamic obstacles.
 

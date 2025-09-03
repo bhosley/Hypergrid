@@ -27,16 +27,18 @@ CREATE TABLE IF NOT EXISTS train_runs (
     finished_at     TEXT
 );
 
--- CREATE INDEX IF NOT EXISTS idx_train_status ON train_runs(status);
+CREATE INDEX IF NOT EXISTS idx_train_runs_expid_sampleidx
+    ON train_runs(exp_id, sample_idx);
 
 CREATE TABLE IF NOT EXISTS eval_runs (
-    eval_id     INTEGER PRIMARY KEY, -- UUID
---   run_id           TEXT NOT NULL,    -- FK -> train_runs
-    eval_type   TEXT NOT NULL,
+    eval_id     INTEGER PRIMARY KEY,    -- UUID
+    exp_id      INTEGER NOT NULL,       -- FK
+    run_id      INTEGER NOT NULL,       -- FK
     status      TEXT NOT NULL CHECK(
         status IN ('pending','running','succeeded','failed','aborted')),
-    started_at  DATETIME,
-    finished_at DATETIME
+    started_at  TEXT,
+    finished_at TEXT
 );
 
--- CREATE INDEX IF NOT EXISTS idx_eval_status ON eval_runs(status);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_eval_runs_runid_type
+    ON eval_runs(run_id, eval_type);

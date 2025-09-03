@@ -1,9 +1,10 @@
 import numpy as np
 from numpy.typing import NDArray
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 
 from ..hypergrid_env import AgentID
 from ..core.actions import OrthogonalActionSpec
+from ..core.agent import Agent
 from ..core.constants import Color
 from ..utils.wrappers import OneHotObsWrapper
 from .foraging import ForagingEnv
@@ -18,8 +19,10 @@ from random import choice as random_choice
 class SensorSuiteUnwrapped(ForagingEnv):
     def __init__(
         self,
+        agents: Iterable[Agent] | int = None,
         agent_sensors: dict[AgentID, NDArray] = None,
         full_visibility: bool = False,
+        remove_agents: list[AgentID] = None,
         **kwargs,
     ):
         """
@@ -32,6 +35,7 @@ class SensorSuiteUnwrapped(ForagingEnv):
         super().__init__(
             agent_action_spec=OrthogonalActionSpec, fixed_level=True, **kwargs
         )
+        self.removed_agents = remove_agents
         # Override agent color cycling
         self.team_color = Color.yellow
         self.agent_states[:, self.agent_states.COLOR_IDX] = self.team_color
@@ -124,6 +128,20 @@ class SensorSuiteUnwrapped(ForagingEnv):
         self.grid.set(self.food_loc[food_ind], WorldObj.empty())
         self.food_loc[food_ind] = new_loc
         self.food_levels[food_ind] = random_choice((1, 2))
+
+    # --- Eval support funcs --- #
+
+    def reset(self, seed=None, **kwargs):
+        outs = super().reset(seed, **kwargs)
+        if self.removed_agents:
+            for agent in self.removed_agents:
+                self.remove_agent(agent)
+        return outs
+
+    def remove_agent(self, agent_idx):
+        """Soft removes agent from environment"""
+        self.agent_states[agent_idx].terminated = True
+        self.agent_states[agent_idx].pos = [-1, -1]
 
 
 class SensorSuiteEnv(OneHotObsWrapper):

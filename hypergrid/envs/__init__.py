@@ -26,6 +26,7 @@ CONFIGURATIONS = {
     "HyperGrid-HotCold-v0": (HotOrColdEnv, {}),
     "Foraging": (ForagingEnv, {}),
     "SensorSuite": (SensorSuiteEnv, {}),
+    "SensorSuite_v1": (SensorSuiteEnv, {"dims": [16, 16], "food": 4}),
 }
 
 # Register environments with gymnasium

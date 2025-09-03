@@ -103,6 +103,8 @@ class CustomTorchModule(TorchRLModule, ValueFunctionAPI):
         self.img_encoder = nn.Sequential(
             nn.Conv2d(input_img, 32, 3),
             nn.ReLU(),
+            nn.MaxPool2d(),
+            nn.Conv2d(32, 64, 3),
             nn.Flatten(),
             nn.Linear(32 * 5 * 5, self.encoder_dims[0]),
         )
@@ -290,7 +292,7 @@ def main(
 
     if wandb and not wandb_key:
         load_dotenv()
-        wandb_key = os.getenv("WANDB_KEY")
+        wandb_key = os.getenv("WANDB_API_KEY")
     if wandb_key:
         wandb_tags = [algo, "multiagent"]
 

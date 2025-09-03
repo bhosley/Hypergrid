@@ -8,6 +8,7 @@ from itertools import product
 from pathlib import Path
 
 from scripts.train import main as train
+from scripts.eval import main as eval
 
 
 def main(args, **kwargs):
@@ -21,6 +22,8 @@ def main(args, **kwargs):
         "num_workers": 8,
         "project_name": project_name,
     }
+    eval_types = ["sensor_degradation", "agent_loss", "coverage_change"]
+
     # General use:
     # TODO: recover the better schema discoverer.
     load_dotenv()
@@ -43,9 +46,11 @@ def main(args, **kwargs):
             factors=_C2_factors(),
         )
         populate_train_samples(db_path=db_path)
+        populate_eval_samples(db_path=db_path, eval_types=eval_types)
     for _ in range(args.run):
         train_replication(db_path=db_path, train_configs=train_configs)
-    # for _ in range(args.eval):
+    if args.eval:
+        eval_replication(db_path=db_path, eval_sample_size=args.eval)
 
 
 # --- --- #
@@ -185,6 +190,7 @@ def populate_experiments(
     samples: int = 1,
 ):
     """Populate the Experiments Table"""
+    Path(save_dir).mkdir(parents=True, exist_ok=True)
     # Connect to DB
     conn = connect_to_DB(db_path)
     cursor = conn.cursor()
@@ -201,14 +207,20 @@ def populate_experiments(
     try:
         # Batch query insert experiment factors
         conn.execute("BEGIN")
+        entries = 0
         for factor_list in factors:
             # Validate Uniqueness before adding:
             cursor.execute(query_existing, factor_list)
             num = len(cursor.fetchall())
             if num < 1:
-                cursor.execute(query_add_exp, (samples, *factor_list, save_dir))
+                cursor.execute(
+                    query_add_exp, (samples, *factor_list, str(save_dir))
+                )
+                entries += 1
         # Commit the transaction
-        conn.execute("COMMIT")
+        print(f"Adding {entries} new experiment types.")
+        if entries > 0:
+            conn.execute("COMMIT")
     except sqlite3.Error as e:
         print(f"An error occurred: {e}")
         # Roll back the transaction if an error occurs
@@ -237,14 +249,14 @@ def populate_train_samples(
     # Pre-defined queries.
     query_samples = "SELECT sample_idx FROM train_runs WHERE exp_id = ?"
     query_add_sample = """
-        INSERT INTO
-        train_runs(exp_id, sample_idx, status)
+        INSERT INTO train_runs(exp_id, sample_idx, status)
         VALUES (?,?,?)
         """
     try:
         # Get experiment information
         cursor.execute("SELECT * FROM experiments")
         exp_rows = [(r["exp_id"], r["n_samples"]) for r in cursor.fetchall()]
+        entries = 0
         for exp_id, n_samples in exp_rows:
             # Collect indexes of samples by experiment ID.
             cursor.execute(query_samples, (exp_id,))
@@ -256,6 +268,8 @@ def populate_train_samples(
                 cursor.execute(query_add_sample, (exp_id, sample_id, "pending"))
                 # Commit the immediately
                 conn.execute("COMMIT")
+                entries += 1
+        print(f"Adding {entries} new training repetitions.")
     except sqlite3.Error as e:
         # Roll back the transaction if an error occurs
         print(f"An error occurred: {e}")
@@ -300,7 +314,7 @@ def train_replication(db_path: Path | str, train_configs: dict = {}):
         # Randomly select a scheduled sample
         run = cursor.execute(query_get_random).fetchone()
         if not run:
-            # We have no more runs
+            print("Did not find any more evaluations to run")
             return
         run_id = run["run_id"]
         exp_id = run["exp_id"]
@@ -312,33 +326,8 @@ def train_replication(db_path: Path | str, train_configs: dict = {}):
         # Release the database for concurrent runners
         if conn:
             conn.close()
-
         config = _rep_row_to_config(row)
         results = train(**config, **train_configs)
-
-        # Clean config
-        # num_agents = int(conf["num_agents"])
-        # make_homo = conf["policy_type"] == "induced_hom"
-        # sensors = json.loads(conf["agent_sensors"])
-        # env_config = {
-        #     "agent_sensors": {
-        #         int(k): v for k, v in sensors["agent_sensors"].items()
-        #     }
-        #     if sensors["agent_sensors"]
-        #     else None
-        # }
-        # Call Train, collect path for recording
-        # results = train(
-        #     num_agents=num_agents,
-        #     env_config=env_config,
-        #     make_homo=make_homo,
-        #     sensor_conf=sensors["config"],
-        #     # TODO: add a switch for this
-        #     wandb=True,
-        #     num_timesteps=1e8,
-        #     num_workers=8,
-        # )
-
         # When finished training reopen DB connection
         conn = connect_to_DB(db_path)
         cursor = conn.cursor()
@@ -357,7 +346,154 @@ def train_replication(db_path: Path | str, train_configs: dict = {}):
             conn.close()
 
 
-# TODO: Evaluator
+def populate_eval_samples(
+    db_path: Path | str,
+    eval_types: list,
+):
+    """
+    Pre-populate evaluation replications for each sample
+    based on the data in the experiments table.
+
+    Parameters
+    ----------
+    db_path : Path or string
+        The full path var directing to the manager database.
+    """
+    # Connect
+    conn = connect_to_DB(db_path)
+    cursor = conn.cursor()
+    # Pre-defined queries.
+    query_unscheduled_evals = """
+        SELECT tr.run_id, tr.exp_id
+        FROM train_runs AS tr
+        WHERE tr.status = 'succeeded'
+        AND NOT EXISTS (
+            SELECT 1 FROM eval_runs er
+            WHERE er.run_id = tr.run_id
+        )
+        """
+    query_add_eval = """
+        INSERT INTO eval_runs (exp_id, run_id, status)
+        VALUES (?,?,?)
+        """
+    try:
+        entries = 0
+        # Find unscheduled evals
+        cursor.execute(query_unscheduled_evals)
+        unscheduled_evals = cursor.fetchall()
+        for eval_row in unscheduled_evals:
+            values = (eval_row["exp_id"], eval_row["run_id"], "pending")
+            cursor.execute(query_add_eval, values)
+            entries += 1
+        # for eval_type in eval_types:
+        #     # Find unscheduled evals
+        #     cursor.execute(query_unscheduled_evals)
+        #     unscheduled_evals = cursor.fetchall()
+        #     for eval_row in unscheduled_evals:
+        #         values = (
+        #             eval_row["exp_id"],
+        #             eval_row["run_id"],
+        #             "pending"
+        #         )
+        #         cursor.execute(query_add_eval, values)
+        #         entries += 1
+        print(f"Adding {entries} new evaluations")
+        if entries > 0:
+            conn.execute("COMMIT")
+    except sqlite3.Error as e:
+        # Roll back the transaction if an error occurs
+        print(f"An error occurred: {e}")
+        conn.execute("ROLLBACK")
+    finally:
+        if conn:
+            conn.close()
+
+
+def eval_replication(db_path: Path | str, eval_sample_size: int = 5):
+    """ """
+    # Get Connection
+    conn = connect_to_DB(db_path)
+    cursor = conn.cursor()
+    query_get_random = """
+        SELECT er.eval_id, tr.model_path
+        FROM eval_runs AS er
+        INNER JOIN train_runs AS tr
+        ON er.run_id = tr.run_id
+        WHERE er.status = 'pending'
+        ORDER BY RANDOM()
+        """
+    query_set_running = """
+        UPDATE eval_runs
+        SET status='running', started_at=?
+        WHERE eval_id=?
+        """
+    query_set_complete = """
+        UPDATE eval_runs
+        SET status='succeeded', finished_at=?
+        WHERE eval_id=?
+        """
+    query_get_exp_config = "SELECT * FROM experiments WHERE exp_id=?"
+    query_get_run_config = "SELECT * FROM train_runs WHERE run_id=?"
+
+    query_get_eval_config = """
+        SELECT * FROM experiments
+        WHERE eval_id=?
+    """
+    try:
+        # Randomly select a scheduled sample
+        eval_entry = cursor.execute(query_get_random).fetchone()
+        if not eval_entry:
+            print("Did not find any more evaluations to run")
+            return
+        eval_id = eval_entry["eval_id"]
+        # Set to running - commit immediately
+        start_time = datetime.now().isoformat()
+        cursor.execute(query_set_running, (start_time, eval_id))
+        conn.execute("COMMIT")
+
+        # Get info needed
+        eval_conf = {}
+        row = cursor.execute(query_get_eval_config, (eval_id,)).fetchone()
+        exp_id = row["exp_id"]
+        run_id = row["run_id"]
+        # Get experiment info
+        exp_conf = cursor.execute(query_get_exp_config, (exp_id,)).fetchone()
+        eval_conf["agents"] = exp_conf["num_agents"]
+        sensors = json.loads(exp_conf["agent_sensors"])
+        eval_conf["sensor_config"] = sensors["config"]
+        eval_conf["agent_sensors"] = {
+            "agent_sensors": {
+                int(k): v for k, v in sensors["agent_sensors"].items()
+            }
+            if sensors["agent_sensors"]
+            else None
+        }
+        # Get directory
+        run_conf = cursor.execute(query_get_run_config, (run_id,)).fetchone()
+        eval_conf["load_dir"] = run_conf["model_path"]
+        # Other params
+        eval_conf["episodes"] = eval_sample_size
+        # Release the database for concurrent runners
+        if conn:
+            conn.close()
+
+        eval(**eval_conf)
+
+        end_time = datetime.now().isoformat()
+        # When finished training reopen DB connection
+        conn = connect_to_DB(db_path)
+        cursor = conn.cursor()
+        cursor.execute(query_set_complete, (end_time, eval_id))
+        # Commit the transaction
+        conn.execute("COMMIT")
+    except sqlite3.Error as e:
+        # Roll back the transaction if an error occurs
+        print(f"An error occurred: {e}")
+        conn.execute("ROLLBACK")
+    finally:
+        if conn:
+            conn.close()
+
 
 # --- Functions specific to this specific experiment --- #
 
@@ -407,7 +543,8 @@ def _rep_row_to_config(row):
         if sensors["agent_sensors"]
         else None
     }
-    config["save_dir"] = row["save_path"]
+    config["save_dir"] = Path(row["save_path"])
+    config["sensor_conf"] = sensors["config"]
     return config
 
 
@@ -432,7 +569,7 @@ if __name__ == "__main__":
         nargs="?",
         const=30,
         default=0,
-        help="Populate.",
+        help="Populate experiments.",
     )
     parser.add_argument(
         "-C",
