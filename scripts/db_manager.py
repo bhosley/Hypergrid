@@ -160,19 +160,14 @@ def clean(
     #     """
     query_stale_runs = """
         SELECT ?, started_at
-        FROM ?
+        FROM {}
         WHERE status = 'running'
         AND julianday('now') - julianday(started_at, 'utc') > ?/1440.0
         """
     query_reset_rec = "UPDATE ? SET status='pending', started_at=NULL WHERE ?=?"
     # Collect stale records
     stale_recs = cursor.execute(
-        query_stale_runs,
-        (
-            "run_id",
-            "train_runs",
-            minutes,
-        ),
+        query_stale_runs.format("train_runs"), ("run_id", minutes)
     ).fetchall()
     # stale_recs = cursor.execute(query_stale_trains, (minutes,)).fetchall()
     count = 0
@@ -189,12 +184,7 @@ def clean(
                 print(f"An error occurred: {e}")
                 conn.execute("ROLLBACK")
     stale_recs = cursor.execute(
-        query_stale_runs,
-        (
-            "eval_id",
-            "eval_runs",
-            minutes,
-        ),
+        query_stale_runs.format("eval_runs"), ("eval_id", minutes)
     ).fetchall()
     # stale_recs = cursor.execute(query_stale_evals, (minutes,)).fetchall()
     for rec in stale_recs:
