@@ -101,3 +101,17 @@ def test_forage_food_level_requirement(test_level):
     assert np.array_equal(init_food_loc[1], env.food_loc[1])
     go_to_food(env, food_idx=1)
     assert not np.array_equal(init_food_loc[1], env.food_loc[1])
+
+
+@pytest.mark.parametrize("num_agents", [1, 2])
+@pytest.mark.parametrize("goal_shape", [False, True])
+@pytest.mark.parametrize("ally_shape", [False, True])
+def test_forage_behavior_shaping(num_agents, goal_shape, ally_shape):
+    env = ENVCLASS(
+        agents=num_agents,
+        goal_shape=goal_shape,
+        ally_shape=ally_shape,
+    )
+    outs = go_to_food(env)
+    for i in range(num_agents):
+        assert outs[1][i] > 0

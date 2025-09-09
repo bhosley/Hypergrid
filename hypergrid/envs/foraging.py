@@ -168,7 +168,7 @@ class ForagingEnv(HyperGridEnv):
         occupation from triggering on success effects.
         """
         if self._goal_shape:
-            distances = np.abs(self.food_loc - agent.loc)
+            distances = np.abs(self.food_loc - agent.pos)
             chebyshev = np.max(distances, axis=-1)
             infos[agent.index]["distance_to_goals"] = chebyshev
             min_cheby = np.min(chebyshev)
@@ -177,7 +177,7 @@ class ForagingEnv(HyperGridEnv):
                 rewards[agent.index] += feedback
 
         if self._ally_shape:
-            distances = np.abs(self.agent_states.pos - agent.loc)
+            distances = np.abs(self.agent_states.pos - agent.pos)
             chebyshev = np.max(distances, axis=-1)
             infos[agent.index]["distance_to_allies"] = chebyshev
             sum_cheby = np.sum(chebyshev)
