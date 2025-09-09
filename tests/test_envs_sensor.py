@@ -9,6 +9,8 @@ from hypergrid.envs.sensor_suite import SensorSuiteUnwrapped as unwrapped
 from hypergrid.envs.sensor_suite import SensorSuiteEnv as wrapped
 from hypergrid.core.constants import Color
 
+from .test_envs_forage import go_to_food
+
 
 # Ruff formatter doesn't like the param fixtures below.
 # fmt: off
@@ -56,3 +58,12 @@ def test_env_sensor_suite_sensor_input_robustness(agents, agent_sensors):
     assert not env.full_visibility
     env2 = wrapped(agents=agents, agent_sensors=agent_sensors)
     assert not env2.env.full_visibility
+
+@pytest.mark.parametrize("vis", [None, True])
+@pytest.mark.parametrize("agents", [1, 2, 4])
+def test_sensor_suite_loop(vis, agents):
+    env = unwrapped(record_visibility_on_success=vis, agents=agents)
+    env.reset()
+    _,_,_,_,infos = go_to_food(env)
+    if vis:
+        assert infos is not None, f"{infos=}"

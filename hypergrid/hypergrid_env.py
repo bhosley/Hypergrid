@@ -348,7 +348,9 @@ class HyperGridEnv(gym.Env, RandomMixin):
         return observations, infos
 
     def step(
-        self, actions: dict[AgentID, Sequence[int]]
+        self,
+        actions: dict[AgentID, Sequence[int]],
+        infos: dict[AgentID, dict] = None,
     ) -> tuple[
         dict[AgentID, ObsType],
         dict[AgentID, SupportsFloat],
@@ -379,12 +381,12 @@ class HyperGridEnv(gym.Env, RandomMixin):
             Additional information for each agent
         """
         self.step_count += 1
-        rewards = self._handle_actions(actions)
-        observations = self.gen_obs()
+        infos = infos or dict(enumerate(repeat({}, self.num_agents)))
         terminations = dict(enumerate(self.agent_states.terminated))
+        rewards, infos = self._handle_actions(actions, terminations, infos)
+        observations = self.gen_obs(infos)
         truncated = self.step_count >= self.max_steps
         truncations = dict(enumerate(repeat(truncated, self.num_agents)))
-        infos = dict(enumerate(repeat({}, self.num_agents)))
 
         # Rendering
         if self.render_mode == "human":
@@ -392,7 +394,10 @@ class HyperGridEnv(gym.Env, RandomMixin):
 
         return observations, rewards, terminations, truncations, infos
 
-    def gen_obs(self) -> dict[AgentID, ObsType]:
+    def gen_obs(
+        self,
+        infos: dict[AgentID, dict] = {},
+    ) -> dict[AgentID, ObsType]:
         """
         Generate observations for each agent
         (partially observable, low-res encoding).
@@ -580,6 +585,7 @@ class HyperGridEnv(gym.Env, RandomMixin):
         agent: Agent,
         rewards: dict[AgentID, SupportsFloat],
         terminations: dict[AgentID, bool],
+        infos: dict[AgentID, dict] = None,
     ):
         """
         Callback for when an agent completes its mission.
@@ -616,6 +622,7 @@ class HyperGridEnv(gym.Env, RandomMixin):
         agent: Agent,
         rewards: dict[AgentID, SupportsFloat],
         terminations: dict[AgentID, bool] = {},
+        infos: dict[AgentID, dict] = None,
     ):
         """
         Callback for when an agent fails its mission prematurely.
@@ -640,7 +647,12 @@ class HyperGridEnv(gym.Env, RandomMixin):
             terminations[agent.index] = True
         return terminations
 
-    def _update_orientation(self, agent: Agent, orientation: Sequence[int]):
+    def _update_orientation(
+        self,
+        agent: Agent,
+        orientation: Sequence[int],
+        infos: dict[AgentID, dict] = None,
+    ):
         """
         :meta public:
 
@@ -657,7 +669,12 @@ class HyperGridEnv(gym.Env, RandomMixin):
         """
         agent.state.dir = orientation
 
-    def _move_agent(self, agent: Agent, rewards: dict[AgentID, SupportsFloat]):
+    def _move_agent(
+        self,
+        agent: Agent,
+        rewards: dict[AgentID, SupportsFloat],
+        infos: dict[AgentID, dict] = None,
+    ):
         """
         :meta public:
 
@@ -693,6 +710,7 @@ class HyperGridEnv(gym.Env, RandomMixin):
         agent: Agent,
         rewards: dict[AgentID, SupportsFloat],
         terminations: dict[AgentID, bool] = {},
+        infos: dict[AgentID, dict] = None,
     ):
         """
         :meta public:
@@ -710,12 +728,15 @@ class HyperGridEnv(gym.Env, RandomMixin):
         """
         loc = agent.pos
         if isinstance(self.grid.get(loc), Lava):
-            self._on_failure(agent, rewards, terminations)
+            self._on_failure(agent, rewards, terminations, infos)
         if isinstance(self.grid.get(loc), Goal):
-            self._on_success(agent, rewards, terminations)
+            self._on_success(agent, rewards, terminations, infos)
 
     def _agent_interaction(
-        self, agent: Agent, rewards: dict[AgentID, SupportsFloat]
+        self,
+        agent: Agent,
+        rewards: dict[AgentID, SupportsFloat],
+        infos: dict[AgentID, dict] = None,
     ):
         """
         :meta public:
@@ -744,6 +765,7 @@ class HyperGridEnv(gym.Env, RandomMixin):
         self,
         actions: dict[AgentID, Sequence[int]],
         rewards: dict[AgentID, SupportsFloat],
+        infos: dict[AgentID, dict] = None,
     ):
         """
         :meta public:
@@ -769,7 +791,10 @@ class HyperGridEnv(gym.Env, RandomMixin):
         return actors
 
     def _handle_actions(
-        self, actions: dict[AgentID, Sequence[int]]
+        self,
+        actions: dict[AgentID, Sequence[int]],
+        terminations: dict[AgentID, bool] = {},
+        infos: dict[AgentID, dict] = None,
     ) -> dict[AgentID, SupportsFloat]:
         """
         :meta public:
@@ -829,23 +854,23 @@ class HyperGridEnv(gym.Env, RandomMixin):
             # action = agent.action_spec.to_dict(action)
 
             # Update Orientation
-            self._update_orientation(agent, action["orient"])
+            self._update_orientation(agent, action["orient"], infos)
 
             # Move
             for _ in range(action["move"]):
                 # attempt to move through each spot in dir one at a time
-                self._move_agent(agent, rewards)
-                self._occupation_effects(agent, rewards)
+                self._move_agent(agent, rewards, infos)
+                self._occupation_effects(agent, rewards, terminations, infos)
 
             # Interact
             if action["interact"]:
-                self._agent_interaction(agent, rewards)
+                self._agent_interaction(agent, rewards, infos)
 
         # Evaluate Group Interactions
         if self.cooperative_task:
-            self._cooperative_interactions(actions, rewards)
+            self._cooperative_interactions(actions, rewards, infos)
 
-        return rewards
+        return rewards, infos
 
     # -------------------------- Render Functions: -------------------------- #
 

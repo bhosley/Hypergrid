@@ -21,6 +21,7 @@ class SensorSuiteUnwrapped(ForagingEnv):
         agent_sensors: dict[AgentID, NDArray] = None,
         full_visibility: bool = False,
         remove_agents: list[AgentID] = None,
+        record_visibility_on_success: bool = False,
         **kwargs,
     ):
         """
@@ -34,6 +35,7 @@ class SensorSuiteUnwrapped(ForagingEnv):
             agent_action_spec=OrthogonalActionSpec, fixed_level=True, **kwargs
         )
         self.removed_agents = remove_agents
+        self.rec_goal_vis = record_visibility_on_success
         # Override agent color cycling
         self.team_color = Color.yellow
         self.agent_states[:, self.agent_states.COLOR_IDX] = self.team_color
@@ -41,6 +43,7 @@ class SensorSuiteUnwrapped(ForagingEnv):
         # Restricted color cycle
         self.vis_channels = [c for c in Color]
         self.vis_channels.remove(Color.grey)
+        self.vis_channels.remove(Color.clear)
         self.vis_channels.remove(self.team_color)
 
         # Ingest agent sensor param
@@ -126,6 +129,23 @@ class SensorSuiteUnwrapped(ForagingEnv):
         self.grid.set(self.food_loc[food_ind], WorldObj.empty())
         self.food_loc[food_ind] = new_loc
         self.food_levels[food_ind] = random_choice((1, 2))
+
+    # Track visibility of agent/goal
+    @override
+    def _on_success(
+        self,
+        food_ind: int,
+        group: list[AgentID],
+        infos: dict[AgentID, dict] = None,
+        **kwargs,
+    ):
+        if self.rec_goal_vis:
+            for i in group:
+                food_loc = self.food_loc[food_ind]
+                food_color = self.grid.get(food_loc).color
+                vis_index = Color.to_index(food_color)
+                infos[i]["vis_of_target"] = vis_index
+        return super()._on_success(food_ind, group, infos=infos, **kwargs)
 
     # --- Eval support funcs --- #
 
