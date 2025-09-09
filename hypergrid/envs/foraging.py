@@ -16,18 +16,25 @@ class ForagingEnv(HyperGridEnv):
         num_food: int = 1,
         level_based: bool = False,
         fixed_level: bool = False,
+        warmth_reward: float = None,
+        goal_shape: bool = False,
+        ally_shape: bool = False,
         **kwargs,
     ):
         super().__init__(**kwargs)
         self.cooperative_task = True
         self.num_food = num_food
         self.food_loc = np.empty((num_food, self.n_dims), dtype=np.int32)
-
+        # Level attributes
         self.level_based = level_based
         self.fixed_level = fixed_level
         self.check_level = level_based or fixed_level
         self.agent_levels = np.ones(self.num_agents)
         self.food_levels = np.ones(self.num_food)
+        # Behavioral shaping
+        self._warmth_reward = warmth_reward or 1 / self.max_steps
+        self._goal_shape = goal_shape
+        self._ally_shape = ally_shape
 
     @override
     def _gen_grid(self, dims: Sequence[int]):
@@ -59,6 +66,7 @@ class ForagingEnv(HyperGridEnv):
         group: list[AgentID],
         rewards: dict[AgentID, SupportsFloat],
         terminations: dict[AgentID, bool] = {},
+        infos: dict[AgentID, dict] = None,
     ):
         # Assign rewards
         if self.joint_reward:
@@ -86,7 +94,12 @@ class ForagingEnv(HyperGridEnv):
         self.food_loc[food_ind] = new_loc
 
     @override
-    def _cooperative_interactions(self, actions, rewards):
+    def _cooperative_interactions(
+        self,
+        actions: dict[AgentID, Sequence[int]],
+        rewards: dict[AgentID, SupportsFloat],
+        infos: dict[AgentID, dict] = None,
+    ):
         """
         Steps:
         1. Filter for agents that are interacting
@@ -120,11 +133,16 @@ class ForagingEnv(HyperGridEnv):
                 not self.check_level
                 or self.food_levels[f] <= self.agent_levels[[food_group]].sum()
             ):
-                self._on_success(food_ind=f, group=food_group, rewards=rewards)
+                self._on_success(
+                    food_ind=f, group=food_group, rewards=rewards, infos=infos
+                )
 
     @override
     def _agent_interaction(
-        self, agent: Agent, rewards: dict[AgentID, SupportsFloat]
+        self,
+        agent: Agent,
+        rewards: dict[AgentID, SupportsFloat],
+        infos: dict[AgentID, dict] = None,
     ):
         """
         Overriding the individual agent interactions prevents
@@ -133,7 +151,7 @@ class ForagingEnv(HyperGridEnv):
         on a task that isn't higher than every contributor.
         """
         if not self.cooperative_task:
-            super()._agent_interaction(self, agent, rewards)
+            super()._agent_interaction(self, agent, rewards, infos)
         else:
             pass
 
@@ -143,9 +161,26 @@ class ForagingEnv(HyperGridEnv):
         agent: Agent,
         rewards: dict[AgentID, SupportsFloat],
         terminations: dict[AgentID, bool] = {},
+        infos: dict[AgentID, dict] = None,
     ):
         """
         Overriding the occupation check is necessary to prevent solo
         occupation from triggering on success effects.
         """
-        pass
+        if self._goal_shape:
+            distances = np.abs(self.food_loc - agent.loc)
+            chebyshev = np.max(distances, axis=-1)
+            infos[agent.index]["distance_to_goals"] = chebyshev
+            min_cheby = np.min(chebyshev)
+            if min_cheby > 0:
+                feedback = self._warmth_reward / min_cheby
+                rewards[agent.index] += feedback
+
+        if self._ally_shape:
+            distances = np.abs(self.agent_states.pos - agent.loc)
+            chebyshev = np.max(distances, axis=-1)
+            infos[agent.index]["distance_to_allies"] = chebyshev
+            sum_cheby = np.sum(chebyshev)
+            if sum_cheby > 0:
+                feedback = self._warmth_reward / sum_cheby
+                rewards[agent.index] += feedback

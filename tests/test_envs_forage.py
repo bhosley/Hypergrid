@@ -62,7 +62,8 @@ def go_to_food(env, food_idx=0):
             ]
         )
         action[i] = [0, ori, 1]
-    env.step(action)
+    outs = env.step(action)
+    return outs
 
 
 # Test Food Respawn
