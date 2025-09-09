@@ -103,11 +103,19 @@ class CustomTorchModule(TorchRLModule, ValueFunctionAPI):
         self.img_encoder = nn.Sequential(
             nn.Conv2d(input_img, 32, 3),
             nn.ReLU(),
-            # nn.MaxPool2d(),
-            # nn.Conv2d(32, 64, 3),
             nn.Flatten(),
             nn.Linear(32 * 5 * 5, self.encoder_dims[0]),
         )
+        # TODO: V2
+        # self.img_encoder = nn.Sequential(
+        #     nn.Conv2d(input_img, 16, (2, 2)),
+        #     nn.ReLU(),
+        #     nn.MaxPool2d((2, 2)),
+        #     nn.Conv2d(16, 32, (2, 2)),
+        #     nn.ReLU(),
+        #     nn.Conv2d(32, 64, (2, 2)),
+        #     nn.ReLU()
+        # )
         self.ori_encoder = nn.Sequential(
             nn.Linear(input_dir, self.encoder_dims[1]),
             nn.ReLU(),
@@ -307,11 +315,6 @@ def main(
                 api_key=wandb_key,  # or rely on wandb login/env var
             )
         )
-
-    # if args.env not in HRL.CONFIGURATIONS:
-    #     # register env
-    #     # TODO: add env registerer
-    #     pass
 
     stop_conditions = {
         "learners/__all_modules__/num_env_steps_trained_lifetime": num_timesteps

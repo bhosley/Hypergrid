@@ -11,9 +11,18 @@ from scripts.train import main as train
 from scripts.eval import main as eval
 
 
+# TODO: V2
+# -rename version
+# -fix path resolver for DB logging
+# -update to newer policy network
+# add shaping reward
+
+
 def main(args, **kwargs):
     """ """
     # Version Specific:
+    # TODO: V2
+    # vers = "v2"
     vers = "v1"
     project_name = f"hypergrid_{vers}"
     _configs = {
@@ -22,16 +31,18 @@ def main(args, **kwargs):
         "num_workers": 8,
         "project_name": project_name,
     }
-    eval_types = ["sensor_degradation", "agent_loss", "coverage_change"]
+    # eval_types = ["sensor_degradation", "agent_loss", "coverage_change"]
 
     # General use:
     # TODO: recover the better schema discoverer.
-    # TODO: fix path resolver for db
+    # TODO: V2 fix path resolver for db
     load_dotenv()
     schema_path = args.schema_path if args.schema_path else Path("./schema.sql")
-    share_path = Path(
-        os.path.relpath(os.getenv("SHARE_PATH"), Path().cwd().resolve())
-    ).joinpath(project_name)
+    share_path = (
+        Path(os.path.relpath(os.getenv("SHARE_PATH"), Path().cwd().resolve()))
+        .joinpath(project_name)
+        .resolve()
+    )
     db_path = share_path.joinpath("exp_manager.db")
     model_path = share_path.joinpath("ray_results")
 
@@ -47,7 +58,7 @@ def main(args, **kwargs):
             factors=_C2_factors(),
         )
         populate_train_samples(db_path=db_path)
-        populate_eval_samples(db_path=db_path, eval_types=eval_types)
+        populate_eval_samples(db_path=db_path)
     for _ in range(args.run):
         train_replication(db_path=db_path, train_configs=_configs)
     for _ in range(args.eval):
@@ -154,8 +165,8 @@ def clean(
         AND julianday('now') - julianday(started_at, 'utc') > ?/1440.0
         """
     query_reset_rec = """
-        UPDATE {} 
-        SET status='pending', started_at=NULL 
+        UPDATE {}
+        SET status='pending', started_at=NULL
         WHERE {}=?
         """
     # Collect stale records
@@ -163,13 +174,16 @@ def clean(
         query_stale_runs.format("run_id", "train_runs"), (minutes,)
     ).fetchall()
     # stale_recs = cursor.execute(query_stale_trains, (minutes,)).fetchall()
-    count = [len(stale_recs),0]
+    count = [len(stale_recs), 0]
     if stale_recs:
         for rec in stale_recs:
             # Try to reset the stale records
             if not test:
                 try:
-                    cursor.execute(query_reset_rec.format("train_runs", "run_id"), (rec["run_id"],))
+                    cursor.execute(
+                        query_reset_rec.format("train_runs", "run_id"),
+                        (rec["run_id"],),
+                    )
                     conn.execute("COMMIT")
                     count[1] += 1
                 except sqlite3.Error as e:
@@ -186,7 +200,10 @@ def clean(
             # Try to reset the stale records
             if not test:
                 try:
-                    cursor.execute(query_reset_rec.format("eval_runs", "eval_id"), (rec["eval_id"],))
+                    cursor.execute(
+                        query_reset_rec.format("eval_runs", "eval_id"),
+                        (rec["eval_id"],),
+                    )
                     conn.execute("COMMIT")
                     count[1] += 1
                 except sqlite3.Error as e:
@@ -195,11 +212,7 @@ def clean(
                     conn.execute("ROLLBACK")
     if conn:
         conn.close()
-    print(
-        "Found {} stale records, successfully removed {}.".format(
-            *count
-        )
-    )
+    print("Found {} stale records, successfully removed {}.".format(*count))
 
 
 # --- Content Functions --- #
@@ -368,10 +381,7 @@ def train_replication(db_path: Path | str, train_configs: dict = {}):
             conn.close()
 
 
-def populate_eval_samples(
-    db_path: Path | str,
-    eval_types: list,
-):
+def populate_eval_samples(db_path: Path | str):
     """
     Pre-populate evaluation replications for each sample
     based on the data in the experiments table.
@@ -419,7 +429,9 @@ def populate_eval_samples(
             conn.close()
 
 
-def eval_replication(db_path: Path | str, eval_sample_size: int = 5, configs: dict = {}):
+def eval_replication(
+    db_path: Path | str, eval_sample_size: int = 5, configs: dict = {}
+):
     """ """
     # Get Connection
     conn = connect_to_DB(db_path)
