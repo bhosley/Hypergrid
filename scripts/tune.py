@@ -313,6 +313,20 @@ def tune_custom_module(
         # module_config will be overridden by Tune below
         module_config=None,
     )
+    # Always evaluate with shaping disabled so we optimize on unshaped reward
+    base = base.evaluation(
+        evaluation_interval=1,
+        evaluation_num_env_runners=1,
+        evaluation_duration=5,
+        evaluation_duration_unit="episodes",
+        evaluation_config={
+            "env_config": {
+                **(env_config or {}),
+                "goal_shape": False,
+                "ally_shape": False,
+            }
+        },
+    )
 
     # Define search space by overriding fields in the config
     def _sample_module_cfg():
@@ -360,6 +374,15 @@ def tune_custom_module(
             lr=tune.loguniform(1e-5, 3e-3),
             train_batch_size=tune.choice([2048, 4096, 8192]),
         )
+        .environment(
+            env_config=tune.sample_from(
+                lambda _: {
+                    **(env_config or {}),
+                    "goal_shape": random.choice([False, True]),
+                    "ally_shape": random.choice([False, True]),
+                }
+            )
+        )
         .rl_module(
             rl_module_spec=MultiRLModuleSpec(
                 rl_module_specs={
@@ -376,7 +399,7 @@ def tune_custom_module(
     )
 
     scheduler = ASHAScheduler(
-        metric="episode_reward_mean",  # RLlib reports this alias in most configs
+        metric="evaluation/episode_reward_mean",  # Use evaluation metric
         mode="max",
         grace_period=5,
         reduction_factor=3,
