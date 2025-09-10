@@ -28,6 +28,7 @@ from ray.rllib.utils.from_config import NotProvided
 
 
 import hypergrid.rllib as HRC
+from .models import TwoHeadModule
 
 assert HRC is not None
 
@@ -106,16 +107,6 @@ class CustomTorchModule(TorchRLModule, ValueFunctionAPI):
             nn.Flatten(),
             nn.Linear(32 * 5 * 5, self.encoder_dims[0]),
         )
-        # TODO: V2
-        # self.img_encoder = nn.Sequential(
-        #     nn.Conv2d(input_img, 16, (2, 2)),
-        #     nn.ReLU(),
-        #     nn.MaxPool2d((2, 2)),
-        #     nn.Conv2d(16, 32, (2, 2)),
-        #     nn.ReLU(),
-        #     nn.Conv2d(32, 64, (2, 2)),
-        #     nn.ReLU()
-        # )
         self.ori_encoder = nn.Sequential(
             nn.Linear(input_dir, self.encoder_dims[1]),
             nn.ReLU(),
@@ -209,20 +200,21 @@ def get_algorithm_config(
             if torch.cuda.is_available()
             else 0,
         )
-        .rl_module(
-            rl_module_spec=MultiRLModuleSpec(
-                rl_module_specs={
-                    f"policy_{i}": RLModuleSpec(module_class=CustomTorchModule)
-                    for i in range(num_agents)
-                }
-            )
-        )
+        # .rl_module(
+        #     rl_module_spec=MultiRLModuleSpec(
+        #         rl_module_specs={
+        #             f"policy_{i}": RLModuleSpec(module_class=CustomTorchModule)
+        #             for i in range(num_agents)
+        #         }
+        #     )
+        # )
     )
     if make_homo:
         config = config.rl_module(
             rl_module_spec=MultiRLModuleSpec(
                 rl_module_specs={
-                    "policy_0": RLModuleSpec(module_class=CustomTorchModule)
+                    "policy_0": RLModuleSpec(module_class=TwoHeadModule)
+                    # "policy_0": RLModuleSpec(module_class=CustomTorchModule)
                 }
             )
         ).multi_agent(
@@ -234,7 +226,8 @@ def get_algorithm_config(
         config = config.rl_module(
             rl_module_spec=MultiRLModuleSpec(
                 rl_module_specs={
-                    f"policy_{i}": RLModuleSpec(module_class=CustomTorchModule)
+                    f"policy_{i}": RLModuleSpec(module_class=TwoHeadModule)
+                    # f"policy_{i}": RLModuleSpec(module_class=CustomTorchModule)
                     for i in range(num_agents)
                 }
             )
