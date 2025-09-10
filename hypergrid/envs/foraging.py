@@ -60,6 +60,16 @@ class ForagingEnv(HyperGridEnv):
             self.food_levels = np.zeros(self.num_food)
 
     @override
+    def _reward(
+        self,
+        group=[
+            1,
+        ],
+    ):
+        # return 1 - 0.9 * (self.step_count / self.max_steps)
+        return len(group)
+
+    @override
     def _on_success(
         self,
         food_ind: int,
@@ -72,11 +82,11 @@ class ForagingEnv(HyperGridEnv):
         if self.joint_reward:
             # reward all agents
             for i in range(self.num_agents):
-                rewards[i] = self._reward()
+                rewards[i] = self._reward(group)
         else:
             # reward this agent only
             for i in group:
-                rewards[i] = self._reward()
+                rewards[i] = self._reward(group)
 
         # If level based, increment levels
         if self.level_based:
