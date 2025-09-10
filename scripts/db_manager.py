@@ -11,19 +11,10 @@ from scripts.train import main as train
 from scripts.eval import main as eval
 
 
-# TODO: V2
-# -rename version
-# -fix path resolver for DB logging
-# -update to newer policy network
-# add shaping reward
-
-
 def main(args, **kwargs):
     """ """
     # Version Specific:
-    # TODO: V2
-    # vers = "v2"
-    vers = "v1"
+    vers = "v2"
     project_name = f"hypergrid_{vers}"
     _configs = {
         "use_wandb": True,
@@ -35,7 +26,6 @@ def main(args, **kwargs):
 
     # General use:
     # TODO: recover the better schema discoverer.
-    # TODO: V2 fix path resolver for db
     load_dotenv()
     schema_path = args.schema_path if args.schema_path else Path("./schema.sql")
     share_path = (

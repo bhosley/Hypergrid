@@ -112,11 +112,6 @@ class TwoHeadModule(TorchRLModule, ValueFunctionAPI):
         #     nn.Linear(32 * 5 * 5, self.encoder_dims[0]),
         # )
         # TODO: V2
-        img_embed = (
-            64
-            * self.observation_space["image"].shape[0]
-            * self.observation_space["image"].shape[1]
-        )
         self.img_encoder = nn.Sequential(
             nn.Conv2d(input_img, 16, (2, 2)),
             nn.ReLU(),
@@ -126,7 +121,7 @@ class TwoHeadModule(TorchRLModule, ValueFunctionAPI):
             nn.Conv2d(32, 64, (2, 2)),
             nn.ReLU(),
             nn.Flatten(),
-            nn.Linear(img_embed, self.encoder_dims[0]),
+            nn.Linear(64, self.encoder_dims[0]),
         )
         self.ori_encoder = nn.Sequential(
             nn.Linear(input_dir, self.encoder_dims[1]),
@@ -134,8 +129,10 @@ class TwoHeadModule(TorchRLModule, ValueFunctionAPI):
         )
         # Define a fusion trunk and heads:
         self.trunk = nn.Sequential(
-            nn.Linear(sum(self.encoder_dims), 64),
-            nn.ReLU(),
+            nn.Linear(sum(self.encoder_dims), 128),
+            nn.Linear(128, 64),
+            # nn.ReLU(),
+            nn.Tanh(),
         )
         # Unpack the action space shape as an int
         # self.pi_head = nn.Linear(64, *self.action_space.shape)

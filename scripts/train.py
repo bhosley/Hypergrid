@@ -28,7 +28,7 @@ from ray.rllib.utils.from_config import NotProvided
 
 
 import hypergrid.rllib as HRC
-from .models import TwoHeadModule
+from scripts.models import TwoHeadModule
 
 assert HRC is not None
 
@@ -180,6 +180,7 @@ def get_algorithm_config(
     """
     Return the RL algorithm configuration dictionary.
     """
+    env_config = env_config | {"agents": num_agents, "max_steps": 200}
 
     config = (
         PPOConfig()
@@ -191,8 +192,23 @@ def get_algorithm_config(
         )
         .debugging(seed=random.randint(0, 1000000))
         .framework("torch")
-        .environment(env=env, env_config={**env_config, "agents": num_agents})
-        .training(lr=lr, train_batch_size=batch_size)
+        .environment(
+            env=env,
+            env_config={
+                **env_config,
+                "goal_shape": True,
+                "ally_shape": True,
+            },
+        )
+        .training(
+            lr=lr,
+            train_batch_size=batch_size,
+            vf_clip_param=5,
+            clip_param=0.2,
+            gamma=0.99,
+            lambda_=0.95,
+            grad_clip=None,
+        )
         .env_runners(
             num_env_runners=num_workers,
             num_envs_per_env_runner=1,
@@ -200,13 +216,17 @@ def get_algorithm_config(
             if torch.cuda.is_available()
             else 0,
         )
-        # .rl_module(
-        #     rl_module_spec=MultiRLModuleSpec(
-        #         rl_module_specs={
-        #             f"policy_{i}": RLModuleSpec(module_class=CustomTorchModule)
-        #             for i in range(num_agents)
-        #         }
-        #     )
+        # Evaluation runs on an unshaped environment (goal_shape=False, ally_shape=False)
+        # .evaluation(
+        #   evaluation_interval=eval_interval,
+        # evaluation_num_env_runners=min(num_workers, 4),
+        # evaluation_duration=eval_episodes,
+        # evaluation_duration_unit="episodes",
+        # env_config={
+        #     **env_config,
+        #     "goal_shape":True,
+        #     "ally_shape":True,
+        # }
         # )
     )
     if make_homo:
