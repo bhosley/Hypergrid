@@ -26,9 +26,9 @@ class Agent:
         view_size: int = 7,
         see_through_walls: bool = False,
         action_spec: ActionSpec = None,
-        cost_collision_agent: float = 0.0,
-        cost_collision_env: float = 0.0,
-        cost_interaction: float = 0.0,
+        cost_collision_agent: float | None = 0.0,
+        cost_collision_env: float | None = 0.0,
+        cost_interaction: float | None = 0.0,
     ):
         """
         Parameters
@@ -101,9 +101,15 @@ class Agent:
         ) * spatial_ndim  # default to no movement (1 maps to 0)
 
         # Agent related costs
-        self.cost_collision_agent = float(cost_collision_agent)
-        self.cost_collision_env = float(cost_collision_env)
-        self.cost_interaction = float(cost_interaction)
+        self.cost_collision_agent = (
+            float(cost_collision_agent) if cost_collision_agent else 0.0
+        )
+        self.cost_collision_env = (
+            float(cost_collision_env) if cost_collision_env else 0.0
+        )
+        self.cost_interaction = (
+            float(cost_interaction) if cost_interaction else 0.0
+        )
 
     color = PropertyAlias("state", "color", doc="Alias for AgentState.color")
     dir = PropertyAlias("state", "dir", doc="Alias for AgentState.dir")

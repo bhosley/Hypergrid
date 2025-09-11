@@ -10,20 +10,11 @@ from pathlib import Path
 from typing import Callable
 
 import torch
-import torch.nn as nn
-
 import ray.tune
 import ray.train
 from ray.air.integrations.wandb import WandbLoggerCallback
 from ray.rllib.algorithms import AlgorithmConfig, PPOConfig
-from ray.rllib.core.columns import Columns
 from ray.rllib.core.rl_module import MultiRLModuleSpec, RLModuleSpec
-from ray.rllib.core.rl_module.apis import ValueFunctionAPI
-from ray.rllib.core.rl_module.torch import TorchRLModule
-from ray.rllib.models.torch.torch_distributions import (
-    TorchMultiCategorical,
-    TorchCategorical,
-)
 from ray.rllib.utils.from_config import NotProvided
 
 
@@ -71,96 +62,96 @@ def find_checkpoint_dir(search_dir: Path | str | None) -> Path | None:
         return None
 
 
-def get_TorchMultiDiscrete(action_space):
-    from ray.rllib.utils.annotations import override
+# def get_TorchMultiDiscrete(action_space):
+#     from ray.rllib.utils.annotations import override
 
-    class TorchMultDiscrete(TorchMultiCategorical):
-        input_lengths = list(action_space.nvec)
+#     class TorchMultDiscrete(TorchMultiCategorical):
+#         input_lengths = list(action_space.nvec)
 
-        @override(TorchMultiCategorical)
-        def __init__(self, categoricals: list[TorchCategorical], **kwargs):
-            super().__init__(categoricals)
+#         @override(TorchMultiCategorical)
+#         def __init__(self, categoricals: list[TorchCategorical], **kwargs):
+#             super().__init__(categoricals)
 
-        @classmethod
-        @override(TorchMultiCategorical)
-        def from_logits(cls, logits: "torch.Tensor", **kwargs):
-            # If RLlib already supplied input_lens, don't override it.
-            kwargs.setdefault("input_lens", cls.input_lengths)
-            # Properly delegate to the parent implementation (no manual 'cls' arg).
-            return super(TorchMultDiscrete, cls).from_logits(logits, **kwargs)
+#         @classmethod
+#         @override(TorchMultiCategorical)
+#         def from_logits(cls, logits: "torch.Tensor", **kwargs):
+#             # If RLlib already supplied input_lens, don't override it.
+#             kwargs.setdefault("input_lens", cls.input_lengths)
+#             # Properly delegate to the parent implementation (no manual 'cls' arg).
+#             return super(TorchMultDiscrete, cls).from_logits(logits, **kwargs)
 
-    return TorchMultDiscrete
+#     return TorchMultDiscrete
 
 
-class CustomTorchModule(TorchRLModule, ValueFunctionAPI):
-    encoder_dims = [128, 16]
+# class CustomTorchModule(TorchRLModule, ValueFunctionAPI):
+#     encoder_dims = [128, 16]
 
-    def setup(self) -> None:
-        # Manually build sub-nets for each part of the Dict:
-        input_img = self.observation_space["image"].shape[-1]
-        input_dir = self.observation_space["direction"].shape[0]
+#     def setup(self) -> None:
+#         # Manually build sub-nets for each part of the Dict:
+#         input_img = self.observation_space["image"].shape[-1]
+#         input_dir = self.observation_space["direction"].shape[0]
 
-        self.action_dist_cls = get_TorchMultiDiscrete(self.action_space)
-        self.img_encoder = nn.Sequential(
-            nn.Conv2d(input_img, 32, 3),
-            nn.ReLU(),
-            nn.Flatten(),
-            nn.Linear(32 * 5 * 5, self.encoder_dims[0]),
-        )
-        self.ori_encoder = nn.Sequential(
-            nn.Linear(input_dir, self.encoder_dims[1]),
-            nn.ReLU(),
-        )
-        # Define a fusion trunk and heads:
-        self.trunk = nn.Sequential(
-            nn.Linear(sum(self.encoder_dims), 64),
-            nn.ReLU(),
-        )
-        # Unpack the action space shape as an int
-        # self.pi_head = nn.Linear(64, *self.action_space.shape)
-        self.pi_head = nn.Linear(64, int(self.action_space.nvec.sum()))
-        self.value_head = nn.Linear(64, 1)
+#         self.action_dist_cls = get_TorchMultiDiscrete(self.action_space)
+#         self.img_encoder = nn.Sequential(
+#             nn.Conv2d(input_img, 32, 3),
+#             nn.ReLU(),
+#             nn.Flatten(),
+#             nn.Linear(32 * 5 * 5, self.encoder_dims[0]),
+#         )
+#         self.ori_encoder = nn.Sequential(
+#             nn.Linear(input_dir, self.encoder_dims[1]),
+#             nn.ReLU(),
+#         )
+#         # Define a fusion trunk and heads:
+#         self.trunk = nn.Sequential(
+#             nn.Linear(sum(self.encoder_dims), 64),
+#             nn.ReLU(),
+#         )
+#         # Unpack the action space shape as an int
+#         # self.pi_head = nn.Linear(64, *self.action_space.shape)
+#         self.pi_head = nn.Linear(64, int(self.action_space.nvec.sum()))
+#         self.value_head = nn.Linear(64, 1)
 
-    def _forward(self, batch: dict, **kwargs):
-        embeddings = self.heads_and_body(batch)
-        logits = self.pi_head(embeddings)
-        assert logits.shape[-1] == int(
-            self.action_space.nvec.sum()
-        ), f"logits dim {logits.shape[-1]} != sum(nvec) {
-            int(self.action_space.nvec.sum())
-        }"
-        return {
-            Columns.ACTION_DIST_INPUTS: logits,
-            Columns.EMBEDDINGS: embeddings,
-        }
+#     def _forward(self, batch: dict, **kwargs):
+#         embeddings = self.heads_and_body(batch)
+#         logits = self.pi_head(embeddings)
+#         assert logits.shape[-1] == int(
+#             self.action_space.nvec.sum()
+#         ), f"logits dim {logits.shape[-1]} != sum(nvec) {
+#             int(self.action_space.nvec.sum())
+#         }"
+#         return {
+#             Columns.ACTION_DIST_INPUTS: logits,
+#             Columns.EMBEDDINGS: embeddings,
+#         }
 
-    def value_function(self, **kwargs):
-        # RLlib's ValueFunctionAPI expects this to return a 1D tensor of V(s)
-        # matching the last forward() call.
-        return self._value_out
+#     def value_function(self, **kwargs):
+#         # RLlib's ValueFunctionAPI expects this to return a 1D tensor of V(s)
+#         # matching the last forward() call.
+#         return self._value_out
 
-    def compute_values(self, batch, embeddings=None):
-        """
-        Compute V(s) for a batch.
-        If `embeddings` (i.e., trunk output) is provided, reuse it; otherwise,
-        recompute the embedding from the obs dict using this module's encoders.
-        Returns a 1D tensor of shape [B].
-        """
-        if embeddings is None:
-            embeddings = self.heads_and_body(batch)
-        values = self.value_head(embeddings).squeeze(1)
-        return values
+#     def compute_values(self, batch, embeddings=None):
+#         """
+#         Compute V(s) for a batch.
+#         If `embeddings` (i.e., trunk output) is provided, reuse it; otherwise,
+#         recompute the embedding from the obs dict using this module's encoders.
+#         Returns a 1D tensor of shape [B].
+#         """
+#         if embeddings is None:
+#             embeddings = self.heads_and_body(batch)
+#         values = self.value_head(embeddings).squeeze(1)
+#         return values
 
-    def heads_and_body(self, batch):
-        img = batch["obs"]["image"].float()
-        ori = batch["obs"]["direction"].float()
-        # Permute channels from [-1] to [1] - (N D1 D2 C -> N C D1 D2)
-        img = img.permute(0, -1, *(range(1, img.ndim - 1)))
-        z_img = self.img_encoder(img)
-        z_ori = self.ori_encoder(ori)
-        z = torch.cat([z_img, z_ori], dim=1)
-        embedding = self.trunk(z)
-        return embedding
+#     def heads_and_body(self, batch):
+#         img = batch["obs"]["image"].float()
+#         ori = batch["obs"]["direction"].float()
+#         # Permute channels from [-1] to [1] - (N D1 D2 C -> N C D1 D2)
+#         img = img.permute(0, -1, *(range(1, img.ndim - 1)))
+#         z_img = self.img_encoder(img)
+#         z_ori = self.ori_encoder(ori)
+#         z = torch.cat([z_img, z_ori], dim=1)
+#         embedding = self.trunk(z)
+#         return embedding
 
 
 def get_algorithm_config(
@@ -180,7 +171,7 @@ def get_algorithm_config(
     """
     Return the RL algorithm configuration dictionary.
     """
-    env_config = env_config | {"agents": num_agents, "max_steps": 200}
+    # env_config = env_config | {"agents": num_agents, "max_steps": 200}
 
     config = (
         PPOConfig()
@@ -194,11 +185,7 @@ def get_algorithm_config(
         .framework("torch")
         .environment(
             env=env,
-            env_config={
-                **env_config,
-                "goal_shape": True,
-                "ally_shape": True,
-            },
+            env_config={**env_config, "goal_shape": True, "ally_shape": True},
         )
         .training(
             lr=lr,
@@ -224,8 +211,8 @@ def get_algorithm_config(
         # evaluation_duration_unit="episodes",
         # env_config={
         #     **env_config,
-        #     "goal_shape":True,
-        #     "ally_shape":True,
+        #     "goal_shape":False,
+        #     "ally_shape":False,
         # }
         # )
     )
@@ -234,7 +221,6 @@ def get_algorithm_config(
             rl_module_spec=MultiRLModuleSpec(
                 rl_module_specs={
                     "policy_0": RLModuleSpec(module_class=TwoHeadModule)
-                    # "policy_0": RLModuleSpec(module_class=CustomTorchModule)
                 }
             )
         ).multi_agent(
@@ -247,7 +233,6 @@ def get_algorithm_config(
             rl_module_spec=MultiRLModuleSpec(
                 rl_module_specs={
                     f"policy_{i}": RLModuleSpec(module_class=TwoHeadModule)
-                    # f"policy_{i}": RLModuleSpec(module_class=CustomTorchModule)
                     for i in range(num_agents)
                 }
             )
@@ -378,7 +363,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--num-timesteps",
         type=int,
-        default=1e7,
+        default=1e8,
         help="Total number of timesteps to train.",
     )
     parser.add_argument(

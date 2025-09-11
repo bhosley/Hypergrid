@@ -21,6 +21,9 @@ def main(args, **kwargs):
         "num_timesteps": 1e8,
         "num_workers": 8,
         "project_name": project_name,
+        "num_food": 3,
+        "max_steps": 200,
+        "agent_action_cost": 0.5,
     }
     # eval_types = ["sensor_degradation", "agent_loss", "coverage_change"]
 
@@ -229,6 +232,11 @@ def populate_experiments(
         experiments(n_samples, num_agents, policy_type, agent_sensors, save_path)
         VALUES (?,?,?,?,?)
         """
+    query_update_sample_size = """
+        UPDATE experiments
+        SET n_samples = ?
+        WHERE n_samples != ?
+        """
     try:
         # Batch query insert experiment factors
         conn.execute("BEGIN")
@@ -236,16 +244,20 @@ def populate_experiments(
         for factor_list in factors:
             # Validate Uniqueness before adding:
             cursor.execute(query_existing, factor_list)
-            num = len(cursor.fetchall())
+            exps = cursor.fetchall()
+            num = len(exps)
             if num < 1:
                 cursor.execute(
                     query_add_exp, (samples, *factor_list, str(save_dir))
                 )
                 entries += 1
+        cursor.execute(query_update_sample_size, (samples, samples))
+        updates = cursor.rowcount
         # Commit the transaction
         print(f"Adding {entries} new experiment types.")
-        if entries > 0:
-            conn.execute("COMMIT")
+        print(f"Updated sample size for {updates} experiments.")
+        # if entries > 0:
+        conn.execute("COMMIT")
     except sqlite3.Error as e:
         print(f"An error occurred: {e}")
         # Roll back the transaction if an error occurs
@@ -482,7 +494,7 @@ def eval_replication(
         # TODO: Move this variable out
         # eval_conf["use_wandb"] = True
         eval_conf["episodes"] = 30
-        eval_conf["max_steps"] = 200
+        # eval_conf["max_steps"] = 200
         # Release the database for concurrent runners
         if conn:
             conn.close()

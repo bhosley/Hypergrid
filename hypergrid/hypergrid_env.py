@@ -99,6 +99,7 @@ class HyperGridEnv(gym.Env, RandomMixin):
         agent_start_pos: tuple[int, int] | None = None,
         agent_start_dir: Direction | None = None,
         agent_action_spec: ActionSpec | None = OrthogonalActionSpec,
+        agent_action_cost: float | None = None,
         **kwargs,
     ):
         """
@@ -241,6 +242,7 @@ class HyperGridEnv(gym.Env, RandomMixin):
                     view_size=self.agent_view_sizes[i],
                     see_through_walls=self.agent_see_through_walls[i],
                     action_spec=agent_action_spec,
+                    cost_interaction=agent_action_cost,
                 )
                 agent.state = self.agent_states[i]
                 self.agents.append(agent)
