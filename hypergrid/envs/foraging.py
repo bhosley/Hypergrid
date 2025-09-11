@@ -15,7 +15,7 @@ class ForagingEnv(HyperGridEnv):
         self,
         num_food: int = 1,
         level_based: bool = False,
-        fixed_level: bool = False,
+        coop_level: int = 0,
         warmth_reward: float = None,
         goal_shape: bool = False,
         ally_shape: bool = False,
@@ -27,8 +27,8 @@ class ForagingEnv(HyperGridEnv):
         self.food_loc = np.empty((num_food, self.n_dims), dtype=np.int32)
         # Level attributes
         self.level_based = level_based
-        self.fixed_level = fixed_level
-        self.check_level = level_based or fixed_level
+        self.coop_level = coop_level
+        self.check_level = level_based or (coop_level and coop_level > 0)
         self.agent_levels = np.ones(self.num_agents)
         self.food_levels = np.ones(self.num_food)
         # Behavioral shaping
@@ -58,6 +58,10 @@ class ForagingEnv(HyperGridEnv):
         if self.level_based:
             self.agent_levels = np.zeros(self.num_agents)
             self.food_levels = np.zeros(self.num_food)
+
+        if self.coop_level:
+            self.agent_levels = np.ones(self.num_agents)
+            self.food_levels = np.ones(self.num_food) * self.coop_level
 
     @override
     def _reward(

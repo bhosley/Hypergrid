@@ -34,7 +34,7 @@ def test_agent_invalid_int_params_raise_value_error(invalid_input):
 
 @pytest.mark.parametrize(
     "invalid_input",
-    [None, "foo"],
+    ["foo", [0, 0]],
 )
 def test_agent_invalid_flt_params_raise_value_error(invalid_input):
     """Passing an unsupported dims type should raise ValueError."""

@@ -115,3 +115,26 @@ def test_forage_behavior_shaping(num_agents, goal_shape, ally_shape):
     outs = go_to_food(env)
     for i in range(num_agents):
         assert outs[1][i] > 0
+
+
+def test_forage_agents_level_up():
+    env = ENVCLASS(agents=2, level_based=True)
+    env.reset()
+    init_lvl = env.agent_levels.copy()
+    go_to_food(env)
+    assert np.all(init_lvl < env.agent_levels)
+
+
+def test_forage_coop_level():
+    # Should not succeed
+    env = ENVCLASS(agents=2, coop_level=3)
+    env.reset()
+    init_loc_f = env.food_loc.copy()
+    go_to_food(env)
+    assert np.all(init_loc_f == env.food_loc)
+    # Should succeed
+    env = ENVCLASS(agents=3, coop_level=3)
+    env.reset()
+    init_loc_f = env.food_loc.copy()
+    go_to_food(env)
+    assert np.any(init_loc_f != env.food_loc)

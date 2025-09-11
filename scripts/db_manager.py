@@ -23,7 +23,8 @@ def main(args, **kwargs):
         "project_name": project_name,
         "num_food": 3,
         "max_steps": 200,
-        "agent_action_cost": 0.5,
+        "agent_action_cost": 0.25,
+        "coop_level": 2,
     }
     # eval_types = ["sensor_degradation", "agent_loss", "coverage_change"]
 
