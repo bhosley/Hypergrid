@@ -96,22 +96,6 @@ class TwoHeadModule(TorchRLModule, ValueFunctionAPI):
         #         img_act_fn = nn.ELU()
         #     case _:
         #         img_act_fn = nn.ReLU()
-
-        # self.img_encoder = nn.Sequential(
-        #     nn.Conv2d(input_img, 32, img_kernel, padding="same"),
-        #     nn.ReLU(),
-        #     nn.Flatten(),
-        #     nn.Linear(32 * 5 * 5, self.encoder_dims[0]),
-        # )
-        # self.img_encoder = nn.Sequential(
-        #     nn.Conv2d(input_img, img_layers[0], img_kernel, padding="same"),
-        #     img_act_fn,
-        #     nn.Conv2d(img_layers[0], img_layers[1], img_kernel, padding="same"),
-        #     img_act_fn,
-        #     nn.Flatten(),
-        #     nn.Linear(32 * 5 * 5, self.encoder_dims[0]),
-        # )
-        # TODO: V2
         self.img_encoder = nn.Sequential(
             nn.Conv2d(input_img, 16, (2, 2)),
             nn.ReLU(),

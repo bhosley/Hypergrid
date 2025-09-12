@@ -92,9 +92,8 @@ def test_forage_food_level_requirement(test_level):
     go_to_food(env, food_idx=0)
     # Verify that this one respawns
     assert not np.array_equal(init_food_loc[0], env.food_loc[0])
-
     # Grind a lower level food until ready
-    while env.agent_levels.sum() < test_level:
+    while env.agent_levels.sum() < test_level + 1:
         go_to_food(env, food_idx=0)
 
     # Now agent team should be ready

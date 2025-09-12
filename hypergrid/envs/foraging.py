@@ -29,8 +29,8 @@ class ForagingEnv(HyperGridEnv):
         self.level_based = level_based
         self.coop_level = coop_level
         self.check_level = level_based or (coop_level and coop_level > 0)
-        self.agent_levels = np.ones(self.num_agents)
-        self.food_levels = np.ones(self.num_food)
+        self.agent_levels = np.zeros(self.num_agents)
+        self.food_levels = np.zeros(self.num_food)
         # Behavioral shaping
         self._warmth_reward = warmth_reward or 1 / self.max_steps
         self._goal_shape = goal_shape
@@ -145,7 +145,21 @@ class ForagingEnv(HyperGridEnv):
             # For goals with groups, if necessary, check group level
             if food_group and (
                 not self.check_level
+                or len(food_group) >= self.coop_level
                 or self.food_levels[f] <= self.agent_levels[[food_group]].sum()
+            ):
+                self._on_success(
+                    food_ind=f, group=food_group, rewards=rewards, infos=infos
+                )
+
+            if food_group and (
+                (not self.check_level)
+                or (self.coop_level and len(food_group) >= self.coop_level)
+                or (
+                    self.level_based
+                    and self.food_levels[f]
+                    <= self.agent_levels[[food_group]].sum()
+                )
             ):
                 self._on_success(
                     food_ind=f, group=food_group, rewards=rewards, infos=infos
