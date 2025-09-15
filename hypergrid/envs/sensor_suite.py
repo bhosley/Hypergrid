@@ -7,7 +7,7 @@ from ..core.actions import OrthogonalActionSpec
 from ..core.constants import Color
 from ..utils.wrappers import OneHotObsWrapper
 from .foraging import ForagingEnv
-from ..core.world_object import WorldObj, Goal
+from ..core.world_object import WorldObj, Goal, Wall
 from ..core.constants import Type as WO_Types
 from ..core.space import NDSpace
 from typing import override
@@ -22,6 +22,7 @@ class SensorSuiteUnwrapped(ForagingEnv):
         full_visibility: bool = False,
         remove_agents: list[AgentID] = None,
         record_visibility_on_success: bool = False,
+        num_obstacles: int = 0,
         **kwargs,
     ):
         """
@@ -35,7 +36,6 @@ class SensorSuiteUnwrapped(ForagingEnv):
             agent_action_spec=OrthogonalActionSpec, fixed_level=True, **kwargs
         )
         self.removed_agents = remove_agents
-        self.rec_goal_vis = record_visibility_on_success
         # Override agent color cycling
         self.team_color = Color.yellow
         self.agent_states[:, self.agent_states.COLOR_IDX] = self.team_color
@@ -93,6 +93,9 @@ class SensorSuiteUnwrapped(ForagingEnv):
             if np.all(list(self.agent_sensors.values())):
                 self.full_visibility = True
 
+        self.rec_goal_vis = record_visibility_on_success
+        self.num_obstacles = num_obstacles
+
     def _next_color(self):
         return random_choice(self.vis_channels)
 
@@ -101,7 +104,9 @@ class SensorSuiteUnwrapped(ForagingEnv):
     def _gen_grid(self, dims: Sequence[int]):
         self.grid = NDSpace(dims)
         self.grid.make_boundary()
-
+        # Place obstacles (if any) randomly
+        for _ in range(self.num_obstacles):
+            self.place_obj(Wall(color=self._next_color()))
         # Place a goals randomly
         for i in range(self.num_food):
             self.food_loc[i] = self.place_obj(Goal(color=self._next_color()))

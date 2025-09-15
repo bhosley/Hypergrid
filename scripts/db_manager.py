@@ -14,20 +14,21 @@ from scripts.eval import main as eval
 def main(args, **kwargs):
     """ """
     # Version Specific:
-    vers = "v2"
+    vers = "v3"
     project_name = f"hypergrid_{vers}"
     _configs = {
-        "use_wandb": True,
-        "num_timesteps": 1e8,
-        "num_workers": 8,
         "project_name": project_name,
-        "num_food": 3,
-        "max_steps": 200,
+        "use_wandb": True,
+        "num_workers": 8,
+        "record_visibility_on_success": True,
         "agent_action_cost": 0.05,
-        "coop_level": 2,
         "level_based": True,
+        "num_obstacles": 10,
+        "coop_level": 2,
+        "num_food": 3,
+        "max_steps": 100,
+        "num_timesteps": 5e8,
     }
-    # eval_types = ["sensor_degradation", "agent_loss", "coverage_change"]
 
     # General use:
     # TODO: recover the better schema discoverer.
