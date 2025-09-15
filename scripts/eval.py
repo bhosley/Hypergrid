@@ -117,14 +117,17 @@ def main(
             wandb.login()
             wandb.init(
                 project=f"{project_name}_eval",
-                name=f"{eval_type}_{sensor_config}",
-                group=policy_type
+                name=load_dir.parent.name,
+                group=policy_type,
             )
-            wandb.config.update({
-                "num_agents": num_agents,
-                "policy_type": policy_type,
-                "eval_type": eval_type,
-            })
+            wandb.config.update(
+                {
+                    "num_agents": num_agents,
+                    "policy_type": policy_type,
+                    "eval_type": eval_type,
+                    "policy_eval": f"{sensor_config}_{eval_type}",
+                }
+            )
         eval_episode(
             policy_set=restored_module,
             env=env,
@@ -164,7 +167,7 @@ def eval_episode(policy_set, env, episodes=1, wandb_key=None):
         # Log metrics
         if wandb_key:
             episode_stats = {
-                "episode": ep+1,
+                "episode": ep + 1,
                 "metrics/length": episode_length,
                 "metrics/returns/mean": np.mean(list(rewards.values())),
                 "metrics/returns/min": np.min(list(rewards.values())),
@@ -173,7 +176,7 @@ def eval_episode(policy_set, env, episodes=1, wandb_key=None):
             agent_stats = {
                 f"metrics/returns/policy_{i}": r for i, r in rewards.items()
             }
-            wandb.log(episode_stats|agent_stats)
+            wandb.log(episode_stats | agent_stats)
 
 
 if __name__ == "__main__":
