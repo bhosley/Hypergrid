@@ -112,11 +112,12 @@ def main(
     )
     # Eval each type
     for eval_type, eval_conf in eval_configs.items():
-        env = target_env(**overall_conf, **eval_conf, **kwargs)
+        # env = target_env(**overall_conf, **eval_conf, **kwargs)
+        env = target_env(**kwargs, **overall_conf, **eval_conf)
         if wandb_key:
             wandb.login()
             wandb.init(
-                project=f"{project_name}_eval",
+                project=f"{project_name}_eval_2",
                 name=Path(load_dir).parent.name,
                 group=policy_type,
             )
