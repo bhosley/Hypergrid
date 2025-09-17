@@ -117,7 +117,7 @@ def main(
             wandb.login()
             wandb.init(
                 project=f"{project_name}_eval",
-                name=load_dir.parent.name,
+                name=Path(load_dir).parent.name,
                 group=policy_type,
             )
             wandb.config.update(

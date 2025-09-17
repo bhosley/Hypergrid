@@ -1,6 +1,7 @@
 import argparse
 import json
 import os
+import sys
 import sqlite3
 from datetime import datetime
 from dotenv import load_dotenv
@@ -354,8 +355,10 @@ def train_replication(db_path: Path | str, train_configs: dict = {}):
         # Randomly select a scheduled sample
         run = cursor.execute(query_get_random).fetchone()
         if not run:
-            print("Did not find any more evaluations to run")
-            return
+            print("Did not find any more evaluations to run. Exiting...")
+            if conn:
+                conn.close()
+            sys.exit()
         run_id = run["run_id"]
         exp_id = run["exp_id"]
         # Set to running - commit immediately
@@ -466,8 +469,10 @@ def eval_replication(
         # Randomly select a scheduled sample
         eval_entry = cursor.execute(query_get_random).fetchone()
         if not eval_entry:
-            print("Did not find any more evaluations to run")
-            return
+            print("Did not find any more evaluations to run. Exiting...")
+            if conn:
+                conn.close()
+            sys.exit()
         eval_id = eval_entry["eval_id"]
         # Set to running - commit immediately
         start_time = datetime.now().isoformat()
