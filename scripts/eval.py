@@ -113,7 +113,15 @@ def main(
     # Eval each type
     for eval_type, eval_conf in eval_configs.items():
         # env = target_env(**overall_conf, **eval_conf, **kwargs)
-        config = kwargs | overall_conf | eval_conf
+        config = (
+            {
+                "eval_type": eval_type,
+                "load_dir": load_dir,
+            }
+            | kwargs
+            | overall_conf
+            | eval_conf
+        )
         env = target_env(**config)
         if wandb_key:
             wandb.login()
@@ -122,15 +130,7 @@ def main(
                 name=Path(load_dir).parent.name,
                 group=policy_type,
             )
-            wandb.config.update(
-                {
-                    **config,
-                    "num_agents": num_agents,
-                    "policy_type": policy_type,
-                    "eval_type": eval_type,
-                    "policy_eval": f"{sensor_config}_{eval_type}",
-                }
-            )
+            wandb.config.update({**config})
         eval_episode(
             policy_set=restored_module,
             env=env,
