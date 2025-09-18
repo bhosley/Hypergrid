@@ -117,6 +117,7 @@ def main(
             {
                 "eval_type": eval_type,
                 "load_dir": load_dir,
+                "policy_type": policy_type or "default_het",
             }
             | kwargs
             | overall_conf
