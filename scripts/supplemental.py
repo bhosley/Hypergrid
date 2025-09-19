@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-import datetime
 import sqlite3
 import json
+from datetime import datetime
 from pathlib import Path
 
 from scripts.db_manager import connect_to_DB

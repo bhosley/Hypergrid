@@ -10,7 +10,7 @@ from pathlib import Path
 
 from scripts.train import main as train
 from scripts.eval import main as eval
-from scripts.supplemental import eval_shuffle_and_novel
+import supplemental
 
 
 def main(args, **kwargs):
@@ -62,7 +62,7 @@ def main(args, **kwargs):
     for _ in range(args.eval):
         eval_replication(db_path=db_path, configs=_configs)
     if args.supplemental:
-        eval_shuffle_and_novel(
+        supplemental.eval_shuffle_and_novel(
             db_path=db_path,
             eval_reps=args.supplemental,
             configs=_configs,
