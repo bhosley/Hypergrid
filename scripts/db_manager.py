@@ -10,6 +10,7 @@ from pathlib import Path
 
 from scripts.train import main as train
 from scripts.eval import main as eval
+from scripts.supplemental import eval_shuffle_and_novel
 
 
 def main(args, **kwargs):
@@ -60,6 +61,12 @@ def main(args, **kwargs):
         train_replication(db_path=db_path, train_configs=_configs)
     for _ in range(args.eval):
         eval_replication(db_path=db_path, configs=_configs)
+    if args.supplemental:
+        eval_shuffle_and_novel(
+            db_path=db_path,
+            eval_reps=args.supplemental,
+            configs=_configs,
+        )
 
 
 # --- DB Functions --- #
@@ -438,7 +445,7 @@ def populate_eval_samples(db_path: Path | str):
 
 
 def eval_replication(
-    db_path: Path | str, eval_sample_size: int = 5, configs: dict = {}
+    db_path: Path | str, eval_sample_size: int = 30, configs: dict = {}
 ):
     """ """
     # Get Connection
@@ -499,10 +506,7 @@ def eval_replication(
         run_conf = cursor.execute(query_get_run_config, (run_id,)).fetchone()
         eval_conf["load_dir"] = run_conf["model_path"]
         # Other params
-        # TODO: Move this variable out
-        # eval_conf["use_wandb"] = True
-        eval_conf["episodes"] = 30
-        # eval_conf["max_steps"] = 200
+        eval_conf["episodes"] = eval_sample_size
         # Release the database for concurrent runners
         if conn:
             conn.close()
@@ -633,6 +637,15 @@ if __name__ == "__main__":
         "--test",
         action="store_true",
         help="Run as a test.",
+    )
+    parser.add_argument(
+        "-S",
+        "--supplemental",
+        type=int,
+        nargs="?",
+        const=1,
+        default=0,
+        help="Execute Supplemental actions.",
     )
     parser.add_argument(
         "--schema_path",

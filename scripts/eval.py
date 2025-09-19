@@ -206,3 +206,78 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
     main(**vars(args))
+
+
+def supplemental(
+    load_dir: Path | str,
+    num_agents: int,
+    target_env=ENVCLASS,
+    agent_sensors: dict = None,
+    episodes: int = 1,
+    use_wandb: bool = False,
+    wandb_key: str = None,
+    project_name: str = "hypergrid",
+    sensor_config: str = None,
+    policy_type: str = None,
+    **kwargs,
+):
+    """ """
+    if not agent_sensors:
+        # Full vis exp
+        agent_sensors = {i: np.ones(7) for i in range(num_agents)}
+    if use_wandb and not wandb_key:
+        load_dotenv()
+        wandb_key = os.getenv("WANDB_API_KEY")
+    # Construct eval configs
+    overall_conf = {"agents": num_agents}
+    # Shuffled Array
+    eval_configs = {}
+    vals = list(agent_sensors.values())
+    np.random.shuffle(vals)
+    eval_configs["shuffled_set"] = {
+        "agent_sensors": dict(zip(agent_sensors.keys(), vals))
+    }
+    eval_configs["novel_span"] = {
+        "agent_sensors": {
+            0: [1, 0, 0, 1, 0, 1, 1],
+            1: [1, 1, 0, 0, 0, 1, 1],
+            2: [1, 0, 0, 0, 1, 1, 1],
+            3: [1, 0, 1, 0, 0, 1, 1],
+        }
+    }
+    # Initialize Ray
+    ray.init(ignore_reinit_error=True)
+    # Restore agents
+    restored_module = RLModule.from_checkpoint(
+        Path(load_dir) / "learner_group/learner/rl_module"
+    )
+    # Eval each type
+    for eval_type, eval_conf in eval_configs.items():
+        config = (
+            {
+                "eval_type": eval_type,
+                "load_dir": load_dir,
+                "policy_type": policy_type or "default_het",
+                "sensor_config": sensor_config,
+            }
+            | kwargs
+            | overall_conf
+            | eval_conf
+        )
+        env = target_env(**config)
+        if wandb_key:
+            wandb.login()
+            wandb.init(
+                project=f"{project_name}_eval",
+                name=Path(load_dir).parent.name,
+                group=policy_type,
+            )
+            wandb.config.update({**config})
+        eval_episode(
+            policy_set=restored_module,
+            env=env,
+            episodes=episodes,
+            wandb_key=wandb_key,
+        )
+        if wandb_key:
+            wandb.finish()
