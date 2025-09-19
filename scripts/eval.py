@@ -268,7 +268,7 @@ def supplemental(
         if wandb_key:
             wandb.login()
             wandb.init(
-                project=f"{project_name}_eval",
+                project=f"{project_name}_eval_sup",
                 name=Path(load_dir).parent.name,
                 group=policy_type,
             )
