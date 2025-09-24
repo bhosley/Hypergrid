@@ -74,6 +74,7 @@ def get_algorithm_config(
     # lstm: bool = False, TODO: implement LSTM model
     # centralized_critic: bool = False, TODO: implement centralized critic
     make_homo: bool = False,
+    induced_hom: bool = False,
     **kwargs,
 ) -> AlgorithmConfig:
     """
@@ -112,7 +113,8 @@ def get_algorithm_config(
             else 0,
         )
     )
-    if make_homo:
+    if induced_hom:
+        print("Training induced homogeneous group")
         config = config.rl_module(
             rl_module_spec=MultiRLModuleSpec(
                 rl_module_specs={
@@ -125,6 +127,7 @@ def get_algorithm_config(
             policies_to_train=["policy_0"],
         )
     else:
+        print("Training heterogeneous group")
         config = config.rl_module(
             rl_module_spec=MultiRLModuleSpec(
                 rl_module_specs={
