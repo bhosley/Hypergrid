@@ -50,6 +50,7 @@ query_get_exp_config = "SELECT * FROM experiments WHERE exp_id=?"
 query_get_run_config = "SELECT * FROM train_runs WHERE run_id=?"
 
 
+# Deprecate
 def eval_shuffle_and_novel(
     db_path: Path,
     eval_reps: int = 1,

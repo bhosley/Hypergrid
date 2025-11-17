@@ -83,6 +83,8 @@ def main(
         "sensor_improvement",
         "degrade_coverage",
         "improve_coverage",
+        "shuffled_set",
+        "novel_span",
     ]
     eval_configs = {_: {} for _ in eval_types}
     # Agent loss - Set some agents to terminated
@@ -102,6 +104,21 @@ def main(
     }
     eval_configs["improve_coverage"] = {
         "agent_sensors": change_coverage(agent_sensors, decrease=False)
+    }
+    # Shuffle Agent and Policy Assignments
+    vals = list(agent_sensors.values())
+    np.random.shuffle(vals)
+    eval_configs["shuffled_set"] = {
+        "agent_sensors": dict(zip(agent_sensors.keys(), vals))
+    }
+    # Provide a Novel Set of Sensors
+    eval_configs["novel_span"] = {
+        "agent_sensors": {
+            0: [1, 0, 0, 1, 0, 1, 1],
+            1: [1, 1, 0, 0, 0, 1, 1],
+            2: [1, 0, 0, 0, 1, 1, 1],
+            3: [1, 0, 1, 0, 0, 1, 1],
+        }
     }
 
     # Initialize Ray
@@ -208,6 +225,7 @@ if __name__ == "__main__":
     main(**vars(args))
 
 
+# Deprecate
 def supplemental(
     load_dir: Path | str,
     num_agents: int,
