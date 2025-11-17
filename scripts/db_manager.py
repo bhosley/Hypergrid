@@ -16,7 +16,7 @@ import supplemental
 def main(args, **kwargs):
     """ """
     # Version Specific:
-    vers = "v4"
+    vers = "v5"
     project_name = f"hypergrid_{vers}"
     _configs = {
         "project_name": project_name,
@@ -569,6 +569,7 @@ def _rep_row_to_config(row):
     config = {}
     config["num_agents"] = int(row["num_agents"])
     config["make_homo"] = row["policy_type"] == "induced_hom"
+    config["induced_hom"] = row["policy_type"] == "induced_hom"
     sensors = json.loads(row["agent_sensors"])
     config["env_config"] = {
         "agent_sensors": {
