@@ -169,7 +169,7 @@ def eval_episode(policy_set, env, episodes=1, wandb_key=None):
         while not over:
             actions = {}
             for i, o in obss.items():
-                pol = policy_set[f"policy_{i}"]
+                pol = policy_set.get(f"policy_{i}", policy_set[f"policy_{0}"])
                 tens_obs = {
                     _: torch.from_numpy(v).unsqueeze(0) for _, v in o.items()
                 }
